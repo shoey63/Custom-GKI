@@ -1838,3 +1838,5 @@ EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/include
 EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/hal/phydm
 EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/linux
 EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/include
+
+obj-m += 88XXau.o
