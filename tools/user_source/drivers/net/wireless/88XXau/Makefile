@@ -1825,3 +1825,16 @@ endif
 	@$(KSRC)/scripts/sign-file sha256 MOK.priv MOK.der 88XXau.ko
 
 sign-install: all sign install
+
+# =========================================================
+# FORCE INCLUDE PATHS FOR BAZEL SANDBOX (BOTTOM OF FILE)
+# =========================================================
+ccflags-y += -I$(srctree)/drivers/net/wireless/88XXau/include
+ccflags-y += -I$(srctree)/drivers/net/wireless/88XXau/hal/phydm
+ccflags-y += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/linux
+ccflags-y += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/include
+
+EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/include
+EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/hal/phydm
+EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/linux
+EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/88XXau/os_dep/include
