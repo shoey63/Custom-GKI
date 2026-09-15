@@ -52,11 +52,12 @@ cd common
         fi  
         
         echo ">>> Dynamically wiring NoMount hooks into VFS tree..."
-        # Appending to the absolute end of the files bypasses all context-line shift errors across 5.10-6.12
         grep -q "nomount" fs/Makefile || echo 'obj-$(CONFIG_NOMOUNT)		+= nomount/' >> fs/Makefile
         grep -q "nomount" fs/Kconfig || echo 'source "fs/nomount/Kconfig"' >> fs/Kconfig
         
-
+        echo ">>> Dynamically wiring 88XXau into Wireless tree..."
+        grep -q "88XXau" drivers/net/wireless/Makefile || echo 'obj-m += 88XXau/' >> drivers/net/wireless/Makefile
+        
         case "$BASE_VER" in
             5.10)
                 echo ">>> Injecting Legacy 5.10 Kconfig Fragment..."

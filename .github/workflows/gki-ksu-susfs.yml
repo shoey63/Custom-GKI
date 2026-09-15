@@ -372,43 +372,6 @@ jobs:
           OFFICIAL_DATE=${{ env.OFFICIAL_DATE }} \
           bash ./scripts/build_kernel.sh
           
-      - name: Build OOT 88XXau Wi-Fi Driver
-        run: |
-          echo ">>> Cloning oot-modules repository..."
-          git clone --depth=1 https://github.com/shoey63/oot-modules.git oot-modules
-          cd oot-modules
-          
-          echo ">>> Setting up Hermetic Bazel Build Environment..."
-          # Set compiler flags to point exactly to the Bazel output directories
-          export KERNEL_SRC="${GITHUB_WORKSPACE}/kernel_workspace/out/dist"
-          export OUT_DIR="${GITHUB_WORKSPACE}/kernel_workspace/out/dist"
-          export ARCH=arm64
-          
-          # Force raw 'make' to use Google's hermetic clang toolchain from prebuilts
-          export CC="${GITHUB_WORKSPACE}/kernel_workspace/prebuilts/clang/host/linux-x86/clang-r487747c/bin/clang"
-          export LD="${GITHUB_WORKSPACE}/kernel_workspace/prebuilts/clang/host/linux-x86/clang-r487747c/bin/ld.lld"
-          export LLVM=1
-          export LLVM_IAS=1
-          
-          echo ">>> Compiling 88XXau Wi-Fi Driver..."
-          # The Makefile is in the root of the repo, so we run make right here
-          make -j$(nproc)
-          
-          echo ">>> Verifying compilation..."
-          if [ -f "88XXau.ko" ]; then
-            echo ">>> Success! Injecting driver into AK3 staging..."
-            mkdir -p ${GITHUB_WORKSPACE}/out/final
-            cp 88XXau.ko ${GITHUB_WORKSPACE}/out/final/
-            
-            echo ">>> Injecting driver into NetHunter KSU Module staging..."
-            mkdir -p /tmp/kmod_staging
-            cp 88XXau.ko /tmp/kmod_staging/
-          else
-            echo "[-] ERROR: Driver compilation failed. 88XXau.ko not found!"
-            exit 1
-          fi
-          
-          
       - name: Pull stock boot.img from OTA
         if: env.REPACK_ENABLED == 'true'
         run: |
@@ -550,6 +513,7 @@ jobs:
               "eeprom_93cx6.ko"
               "rtl8187.ko"
               "rtl8xxxu.ko"
+              "88XXau.ko"
           )
 
           # 3. Find and copy them EXCLUSIVELY from the compiled Bazel output directory
