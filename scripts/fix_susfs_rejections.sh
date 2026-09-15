@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# scripts/fix_susfs_rejections.sh
 set -euo pipefail
 
 echo ">>> Starting SUSFS patch fixup routine..."
@@ -76,6 +77,35 @@ extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;\
     rm "common/fs/namespace.c.rej"
   else
     echo "  [-] WARNING: namespace.c fix failed to inject! The anchor line may have changed." >&2
+  fi
+fi
+
+# 3.5 Fix fs/super.c
+if [ -f "common/fs/super.c.rej" ]; then
+  echo ">>> Found super.c.rej. Applying manual fix..."
+  
+  # Inject the susfs header block BEFORE <uapi/linux/mount.h>
+  sed -i '/#include <uapi\/linux\/mount.h>/i\
+#ifdef CONFIG_KSU_SUSFS\
+#include <linux/susfs_def.h>\
+#endif \/\/ #ifdef CONFIG_KSU_SUSFS\
+' common/fs/super.c
+
+  # Inject the extern definitions AFTER "internal.h"
+  sed -i '/#include "internal.h"/a\
+\
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\
+extern bool susfs_is_current_ksu_domain(void);\
+extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;\
+#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\
+' common/fs/super.c
+
+  # Sanity Check: Did the injection actually write the externs to the file?
+  if grep -q 'susfs_is_sdcard_android_data_not_decrypted' common/fs/super.c; then
+    echo "  -> super.c fix verified!"
+    rm "common/fs/super.c.rej"
+  else
+    echo "  [-] WARNING: super.c fix failed to inject! The anchor line may have changed." >&2
   fi
 fi
 
@@ -184,6 +214,58 @@ if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "12" ]; then
   else
     echo "  -> Kernel 6.12+ detected, but 2-arg getname_flags is already present. Skipping."
   fi
+fi
+
+# 5.7 Universal Ghost Hook Sanitation
+echo ">>> Checking for deprecated hooks injected by SuSFS patches..."
+
+if [ "$ROOT_MANAGER" = "SukiSU-Ultra" ] || [ "$ROOT_MANAGER" = "ReSukiSU" ]; then
+    echo "  -> $ROOT_MANAGER detected. Applying universal sucompat safeguards..."
+    
+    # 1. Purge dead ksu_install_su_fd hooks if present
+    sed -i '/ksu_install_su_fd/d' common/fs/exec.c || true
+    
+    # 2. Universally inject the weak stub for ksu_handle_post_execveat_sucompat 
+    # across ALL kernel versions to prevent ld.lld linker crashes.
+    if ! grep -q "/* Universal weak stub for SuSFS sucompat hook */" common/fs/exec.c; then
+        cat << 'EOF' >> common/fs/exec.c
+
+/* Universal weak stub for SuSFS sucompat hook */
+__attribute__((weak)) int ksu_handle_post_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags, int *retval) {
+    return 0;
+}
+EOF
+        echo "  -> Universal weak sucompat stub successfully injected into fs/exec.c."
+    else
+        echo "  -> Weak sucompat stub already present. Skipping."
+    fi
+fi
+
+# 5.8 Fix misplaced SuSFS vfs_statfs declaration in fs/statfs.c
+echo ">>> Checking for misplaced susfs_sus_kstat_spoof_vfs_statfs declaration..."
+
+if [ "$BASE_VER" = "5.10" ]; then
+  # Only patch if susfs_statfs_by_dentry is present and we haven't already inserted the early declaration
+  if grep -q "susfs_statfs_by_dentry" common/fs/statfs.c && ! grep -q "/\* CI_STATFS_FIX \*/" common/fs/statfs.c; then
+    echo "  -> Detected function call above declaration. Injecting early prototype into fs/statfs.c..."
+    sed -i '/static int susfs_statfs_by_dentry/i /* CI_STATFS_FIX */\nextern int susfs_sus_kstat_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf, bool *is_fuse);' common/fs/statfs.c
+    echo "  -> Early prototype successfully injected!"
+  else
+    echo "  -> statfs declaration already positioned correctly or not present. Skipping."
+  fi
+fi
+
+# 5.9 Universal fix for missing security.h in fs/susfs.c (Kernel 5.10)
+echo ">>> Checking for missing security.h in fs/susfs.c..."
+
+if [ "$BASE_VER" = "5.10" ]; then
+    if [ -f "common/fs/susfs.c" ] && grep -q "security_sb_statfs" common/fs/susfs.c && ! grep -q "<linux/security.h>" common/fs/susfs.c; then
+        echo "  -> Kernel 5.10 detected. Injecting <linux/security.h> into fs/susfs.c..."
+        sed -i '1i #include <linux/security.h>' common/fs/susfs.c
+        echo "  -> Header successfully injected!"
+    else
+        echo "  -> fs/susfs.c already includes security.h or function call not present. Skipping."
+    fi
 fi
 
 # 6. Final Validation

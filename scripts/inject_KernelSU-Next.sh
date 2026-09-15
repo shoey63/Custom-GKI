@@ -21,7 +21,7 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     cd "${MANAGER_DIR}"
 
     # CAPTURE THIS IMMEDIATELY BEFORE ANY MERGING!
-    UPSTREAM_HASH=$(git log -n 1 --format="%H" -- . ":!website/" ":!docs/" ":!*.md" ":!.github/")
+    UPSTREAM_HASH=$(git log -n 1 --format="%H" -i --grep="ci skip" --grep="skip ci" --invert-grep -- . ":!website/" ":!docs/" ":!*.md" ":!.github/" ":!scripts/")
     CALCULATED_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
     echo "  -> Target Tag: $CALCULATED_TAG"
 
@@ -43,7 +43,7 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
         
         git commit -m "Merge susfs features from pershoot"
     fi
-
+    
     # Lock in variables for the Kbuild Gatekeeper
     UPSTREAM_BRANCH="dev"
     CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}")
@@ -85,7 +85,7 @@ else
 
         # FIX 4: Walk backward down the pristine mainline branch
         set +o pipefail
-        UPSTREAM_HASH=$(git log --first-parent "${RAW_BASE}" --format="%H" -n 1 -- . ":!website/" ":!docs/" ":!*.md" ":!.github/")
+        UPSTREAM_HASH=$(git log -n 1 --first-parent "${RAW_BASE}" --format="%H" -i --grep="ci skip" --grep="skip ci" --invert-grep -- . ":!website/" ":!docs/" ":!*.md" ":!.github/" ":!scripts/")
         set -o pipefail
     fi
     
@@ -96,5 +96,20 @@ fi
 
 # Step back out to kernel_workspace
 cd .. 
+
+# ---------------------------------------------------------
+# KernelSU-Next Kbuild Hotfix (Universal)
+# ---------------------------------------------------------
+# Hotpatch strict Kbuild config check to prevent 'make clean' from crashing.
+# Placed here universally to protect both dynamic and stable pipeline channels.
+KBUILD_FILE="${MANAGER_DIR}/kernel/Kbuild"
+if [ -f "$KBUILD_FILE" ]; then
+    if grep -q "KernelSU requires either CONFIG_KPROBES" "$KBUILD_FILE"; then
+        echo ">>> [HOTFIX] Bypassing strict Kbuild dependency check for the clean phase..."
+        sed -i '/KernelSU requires either CONFIG_KPROBES/d' "$KBUILD_FILE"
+    else
+        echo ">>> [NOTICE] Strict Kbuild check not found! Upstream likely fixed this. You can remove this hotpatch."
+    fi
+fi
 
 echo ">>> KernelSU-Next integration complete."

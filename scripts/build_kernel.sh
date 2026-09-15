@@ -15,10 +15,19 @@ git -C common ls-files -m | xargs -r git -C common update-index --assume-unchang
 # Build method 
 if [ "$BASE_VER" != "5.10" ] && [ -f "tools/bazel" ]; then
     echo ">>> Modern Kleaf/Bazel ecosystem detected for $BASE_VER..."
-    # Enforce standard sandboxing, disable trimming, and inject MAKEFLAGS dynamically
     
+    # 5.15 Kleaf doesn't support the --notrim wrapper flag. 
+    # (configure_kconfigs.sh handles it physically via the dictionary injection)
+    TRIM_FLAGS=""
+    if [ "$BASE_VER" = "5.15" ]; then
+        echo "  -> 5.15 detected. Relying on physical Bazel dictionary patch (omitting --notrim)..."
+    else
+        TRIM_FLAGS="--notrim"
+    fi
+    
+    # Enforce standard sandboxing, disable trimming dynamically, and inject MAKEFLAGS
     tools/bazel run --config=stamp \
-      --notrim \
+      $TRIM_FLAGS \
       --action_env=SOURCE_DATE_EPOCH="$OFFICIAL_DATE" \
       --action_env=STABLE_BUILD_VERSION="-g$OFFICIAL_HASH" \
       --action_env=KLEAF_KERNEL_BUILD_VERSION="-g$OFFICIAL_HASH" \
@@ -31,13 +40,12 @@ else
     echo ">>> Legacy Hermetic Make ecosystem detected (5.10 or fallback)..."
     
     mkdir -p out/dist
+    export DIST_DIR="out/dist"
     
     # Export standard environment variables for legacy build.sh
     export KERNEL_DIR="common"
     export BUILD_CONFIG="common/build.config.gki.aarch64"
     export SOURCE_DATE_EPOCH="$OFFICIAL_DATE"
-    
-    export DIST_DIR="out/dist"
     
     # Inject official hash and Make overrides
     export EXTRA_LINUX_VERSION="-g${OFFICIAL_HASH}"

@@ -40,16 +40,16 @@ on:
         default: true
         
       custom_kconfigs:
-        description: "Inject custom Kconfigs (tools/custom.fragment)?"
+        description: "Inject nomount VFS & Network Optimizations (BBR, CAKE, FastOpen, ECN)"
         required: false
         type: boolean
         default: false
 
-      custom_patches:
-        description: "Apply User Patches and Inject Source Files?"
-        required: false
-        type: boolean
-        default: false
+#        custom_patches:
+#        description: "Apply User Patches and Inject Source Files?"
+#        required: false
+#        type: boolean
+#        default: false
         
       ota_url:
         description: "Full OTA ZIP URL (blank produces AK3 zip)"
@@ -84,7 +84,7 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
-          android: false
+          android: true
           dotnet: true
           haskell: false
           large-packages: false
@@ -129,7 +129,10 @@ jobs:
           BASE_VER=$(echo "$TARGET" | cut -d. -f1,2)
           DB_FILE="tools/master_kernel_db.json"
           MANIFEST_BRANCH=""
-
+             
+          # Export to global runner environment immediately
+          echo "BASE_VER=$BASE_VER" >> $GITHUB_ENV
+          
           # --- QUERY UNIFIED JSON DATABASE ---
           if [ -f "$DB_FILE" ]; then
               echo ">>> Querying $DB_FILE for branch match..."
@@ -154,8 +157,8 @@ jobs:
 
               # Map standard GKI kernel bases to their logical LTS branches
               case "$BASE_VER" in
-                  "5.10") ANDROID_VER="android13" ;;
-                  "5.15") ANDROID_VER="android14" ;;
+                  "5.10") ANDROID_VER="android12" ;;
+                  "5.15") ANDROID_VER="android13" ;;
                   "6.1")  ANDROID_VER="android14" ;;
                   "6.6")  ANDROID_VER="android15" ;;
                   "6.12") ANDROID_VER="android16" ;;
@@ -174,6 +177,7 @@ jobs:
 
           # Export to environment for subsequent sync steps
           echo "MANIFEST_BRANCH=${MANIFEST_BRANCH}" >> $GITHUB_ENV
+          echo "ROOT_MANAGER=${{ inputs.root_manager }}" >> $GITHUB_ENV
           echo "MANIFEST_URL=https://android.googlesource.com/kernel/manifest" >> $GITHUB_ENV
 
 
@@ -188,14 +192,14 @@ jobs:
           if [[ "${{ inputs.root_manager }}" == "KernelSU" || "${{ inputs.root_manager }}" == "KernelSU-Next" || "${{ inputs.root_manager }}" == "ReSukiSU" || "${{ inputs.root_manager }}" == "SukiSU-Ultra" ]]; then
                echo ">>> Routing ${{ inputs.root_manager }} to Automated Dynamic Transplant..."
                echo "USE_DYNAMIC_TRANSPLANT=true" >> $GITHUB_ENV
-               echo "SUSFS_REPO_URL=https://gitlab.com/simonpunk/susfs4ksu.git" >> $GITHUB_ENV
+               echo "SUSFS_REPO_URL=https://gitlab.com/shoey63/susfs4ksu.git" >> $GITHUB_ENV
                echo "KSU_VARIANT_REPO_URL=" >> $GITHUB_ENV
                echo "KSU_VARIANT_REF=stable" >> $GITHUB_ENV
              else
                # Any future/unsupported variants will fall back here for now
                echo ">>> Routing ${{ inputs.root_manager }} to shoey63 Canary fork..."
                echo "USE_DYNAMIC_TRANSPLANT=false" >> $GITHUB_ENV
-               echo "SUSFS_REPO_URL=https://gitlab.com/simonpunk/susfs4ksu.git" >> $GITHUB_ENV
+               echo "SUSFS_REPO_URL=https://gitlab.com/shoey63/susfs4ksu.git" >> $GITHUB_ENV
                echo "KSU_VARIANT_REPO_URL=https://github.com/shoey63/${{ inputs.root_manager }}.git" >> $GITHUB_ENV
                echo "KSU_VARIANT_REF=stable" >> $GITHUB_ENV
              fi
@@ -300,55 +304,62 @@ jobs:
           
           chmod +x scripts/configure_kconfigs.sh
           ./scripts/configure_kconfigs.sh
-
+          
       - name: Inject User Source Files
-        if: ${{ inputs.custom_patches }}
+        if: ${{ inputs.custom_kconfigs }}
         run: |
-          SRC_DIR="$(pwd)/tools/user_source"
+          echo ">>> Fetching latest nomount source..."
+          NOMOUNT_DIR="$(pwd)/tools/user_source/fs/nomount"
+          
+          # Force overwrite the existing .c and .h files with the latest upstream versions
+          curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
+          curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
 
-          # Check if the directory exists and contains files
-          if [ -d "$SRC_DIR" ] && [ "$(ls -A "$SRC_DIR")" ]; then
-            echo ">>> User source files detected. Injecting into common tree..."
-            shopt -s dotglob nullglob
-            cp -r "$SRC_DIR"/* kernel_workspace/common/
-            echo ">>> Source injection complete."
-          else
-            echo ">>> No raw source files found in tools/user_source/."
-          fi
+          echo ">>> Injecting user source files into common tree..."
+          shopt -s dotglob nullglob
+          cp -r "$(pwd)/tools/user_source/"* kernel_workspace/common/
+          
+          echo ">>> Source injection complete."
         shell: bash
         
       - name: Apply User Patches
-        if: ${{ inputs.custom_patches }}
+        if: ${{ inputs.custom_kconfigs }}
         run: |
           PATCH_DIR="$(pwd)/tools/user_patches"
           
-          # BASE_VER is already provided by GITHUB_ENV from the Kconfigs step
           echo ">>> Target Base Version for patches: $BASE_VER"
 
-          # Check if the directory exists and contains any .patch files
-          if [ -d "$PATCH_DIR" ] && ls "$PATCH_DIR"/*.patch >/dev/null 2>&1; then
-            echo ">>> User patches detected in tools/user_patches/. Filtering by version..."
+          if [ -d "$PATCH_DIR" ]; then
             cd kernel_workspace/common
+            shopt -s nullglob
+            patches=("$PATCH_DIR"/*.patch)
 
-            # Iterate through every patch found
-            for patch_file in "$PATCH_DIR"/*.patch; do
-              filename=$(basename "$patch_file")
-              
-              # Condition 1: Patch exactly matches the current BASE_VER (e.g., 6.1-0001.patch)
-              if [[ "$filename" == "${BASE_VER}-"* ]]; then
-                echo "  -> [MATCH] Applying version-specific patch: $filename..."
-                patch -p1 --no-backup-if-mismatch < "$patch_file"
+            if [ ${#patches[@]} -gt 0 ]; then
+              echo ">>> User patches detected. Filtering by version..."
+
+              for patch_file in "${patches[@]}"; do
+                filename=$(basename "$patch_file")
                 
-              # Condition 2: Patch starts with ANY version prefix (e.g., 6.6-0005.patch)
-              elif [[ "$filename" =~ ^[0-9]+\.[0-9]+- ]]; then
-                continue # Skip completely silently to keep the log clean
-                
-              # Condition 3: Patch has no version prefix (e.g., 0007-generic.patch)
-              else
-                echo "  -> [GENERIC] Applying generic patch: $filename..."
-                patch -p1 --no-backup-if-mismatch < "$patch_file"
-              fi
-            done
+                # Condition 1: Exact BASE_VER match (e.g., 6.1-0001-fix.patch)
+                if [[ "$filename" == "${BASE_VER}-"* ]]; then
+                  echo "  -> [MATCH] Applying version-specific patch: $filename..."
+                  patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
+                  
+                # Condition 2: Matches any other kernel version prefix (e.g., 6.6-0005.patch)
+                elif [[ "$filename" =~ ^[0-9]+\.[0-9]+- ]]; then
+                  continue # Silently skip non-matching versions
+                  
+                # Condition 3: Universal patch (e.g., 0007-security-fix.patch)
+                else
+                  echo "  -> [GENERIC] Applying generic patch: $filename..."
+                  patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
+                fi
+              done
+              echo ">>> Patching routine complete."
+            else
+              echo ">>> No .patch files found in tools/user_patches/."
+            fi
+            cd ../..
           fi
 
       - name: Build common kernel Image
@@ -618,6 +629,34 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
           path: out/final/
           if-no-files-found: error
+          
+      - name: Fetch NoMount KernelSU Module
+        if: inputs.custom_kconfigs == true
+        run: |
+          echo ">>> Fetching latest NoMount metamodule from maxsteeel/nomount..."
+          mkdir -p nomount_extracted
+          
+          # Query GitHub API for the latest release and extract the zip download URL
+          LATEST_URL=$(curl -s https://api.github.com/repos/maxsteeel/nomount/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n 1)
+          
+          if [ -n "$LATEST_URL" ]; then
+            echo "  -> Downloading: $LATEST_URL"
+            wget -qO temp_module.zip "$LATEST_URL"
+            
+            echo "  -> Extracting to avoid double-zipping..."
+            unzip -q temp_module.zip -d nomount_extracted/
+            rm temp_module.zip
+          else
+            echo "[-] Failed to find NoMount release zip."
+          fi
+
+      - name: Upload NoMount Module
+        if: inputs.custom_kconfigs == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoMount-KSU-Module
+          path: nomount_extracted/
+          if-no-files-found: warn
 
       - name: Upload Manager APK
         if: inputs.root_manager != 'Stock' && inputs.enable_ksu_susfs == true

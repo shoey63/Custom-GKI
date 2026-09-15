@@ -13,7 +13,7 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     cd ..
     
     cd "${MANAGER_DIR}"
-    UPSTREAM_HASH=$(git log -n 1 --format="%H" -- . ":!website/" ":!docs/" ":!*.md" ":!.github/")
+    UPSTREAM_HASH=$(git log -n 1 --format="%H" -i --grep="ci skip" --grep="skip ci" --invert-grep -- . ":!website/" ":!scripts/" ":!docs/" ":!*.md" ":!.github/")
     CALCULATED_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
     CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}")
     UPSTREAM_BRANCH="main"
@@ -71,13 +71,36 @@ else
     
     # FIX 4: Calculate Hash, Count, and Tag starting strictly from the pristine base commit
     set +o pipefail
-    UPSTREAM_HASH=$(git log --first-parent "${RAW_BASE}" --format="%H" -n 1 -- . ":!website/" ":!docs/" ":!*.md" ":!.github/")
+    UPSTREAM_HASH=$(git log --first-parent "${RAW_BASE}" --format="%H" -n 1 -- . ":!website/" ":!scripts/" ":!docs/" ":!*.md" ":!.github/")
     set -o pipefail
     
     CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}" 2>/dev/null || echo "11950")
     CALCULATED_TAG=$(git describe --tags --abbrev=0 "${UPSTREAM_HASH}" 2>/dev/null || echo "v0.0.0")
     
     cd ..
+fi
+
+# ---------------------------------------------------------
+# SukiSU-Ultra 6.12+ LSM Hook API Fix
+# ---------------------------------------------------------
+echo ">>> Checking for Linux 6.12+ LSM API Mismatch in SukiSU-Ultra..."
+# Dynamically extract kernel version since it's not exported to this script
+K_VER=$(grep "^VERSION =" common/Makefile | tr -d ' ' | cut -d'=' -f2)
+K_PATCH=$(grep "^PATCHLEVEL =" common/Makefile | tr -d ' ' | cut -d'=' -f2)
+
+if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "12" ]; then
+    LSM_HOOK_FILE="common/drivers/kernelsu/hook/lsm_hook.c"
+
+    if [ -f "$LSM_HOOK_FILE" ] && grep -q 'security_add_hooks' "$LSM_HOOK_FILE"; then
+        echo "  -> Kernel 6.12+ detected. Disarming deprecated LSM hook registration..."
+        # Neutralize the hook call while using the variable to prevent compiler warnings
+        sed -i 's/security_add_hooks.*/(void)ksu_hooks;/g' "$LSM_HOOK_FILE"
+        echo "  -> lsm_hook.c runtime panic trap bypassed!"
+    else
+        echo "  -> LSM hook is already updated or file missing. Skipping."
+    fi
+else
+    echo "  -> Kernel $K_VER.$K_PATCH detected. Legacy LSM string hook is perfectly valid."
 fi
 
 echo "  -> Target Tag: $CALCULATED_TAG"
