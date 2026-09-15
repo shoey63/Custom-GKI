@@ -57,6 +57,8 @@ cd common
         
         echo ">>> Dynamically wiring 88XXau into Wireless tree..."
         grep -q "88XXau" drivers/net/wireless/Makefile || echo 'obj-m += 88XXau/' >> drivers/net/wireless/Makefile
+        echo ">>> Forcing ledtrig-netdev linkage to satisfy Bazel..."
+        grep -q "ledtrig-netdev.o" drivers/leds/trigger/Makefile || echo 'obj-m += ledtrig-netdev.o' >> drivers/leds/trigger/Makefile
         
         case "$BASE_VER" in
             5.10)
