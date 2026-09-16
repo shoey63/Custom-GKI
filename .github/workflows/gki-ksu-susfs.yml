@@ -460,58 +460,13 @@ jobs:
 
           # 2. Define the target driver patterns
           MODULE_PATTERNS=(
-              # Core Subsystem Spines (Required for action.sh)
+              # Core Subsystem Spines
               "cfg80211.ko"
               "mac80211.ko"
               "rfkill.ko"
-              "bluetooth.ko"
-              "libarc4.ko"
-              "i2c-mux.ko"
+              "ledtrig-netdev.ko"
 
               # Wi-Fi Adapters
-              "mt76*.ko"
-              "ath*.ko"
-              "carl9170.ko"
-
-              # Bluetooth Hardware
-              "bt*.ko"
-              "bfusb.ko"
-
-              # The Entire SDR / DVB Suite
-              "*/media/dvb-frontends/*.ko"
-              "*/media/tuners/*.ko"
-              "*/media/usb/dvb-usb-v2/*.ko"
-              "dvb*.ko"
-              "rtl*.ko"
-              
-              # USB Ethernet Adapters (Wired Sniffing)
-              "usbnet.ko"
-              "cdc_ether.ko"
-              "rndis_host.ko"
-              "ax88179_178a.ko"
-              "asix.ko"
-              "r8152.ko"
-              
-              # USB Serial & CARsenal              
-              "usbserial.ko"
-              "cp210x.ko"
-              "ftdi_sio.ko"
-              "pl2303.ko"
-              "ch341.ko"
-              "can.ko"
-              "can-dev.ko"
-              "can-raw.ko"
-              "can-bcm.ko"
-              "can-gw.ko"
-              "vcan.ko"
-              "slcan.ko"
-              "gs_usb.ko"
-              
-              # Bluetooth & Legacy Wi-Fi
-              "btusb.ko"
-              "rt2*.ko"
-              "eeprom_93cx6.ko"
-              "rtl8187.ko"
               "rtl8xxxu.ko"
               "88XXau.ko"
           )

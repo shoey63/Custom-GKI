@@ -1,72 +1,21 @@
 diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
-index cea2e6714..519e1b025 100644
+index cea2e6714..4388fadcb 100644
 --- a/arch/arm64/configs/gki_defconfig
 +++ b/arch/arm64/configs/gki_defconfig
-@@ -266,6 +265,7 @@ CONFIG_NET_SCH_TBF=y
- CONFIG_NET_SCH_NETEM=y
- CONFIG_NET_SCH_CODEL=y
- CONFIG_NET_SCH_FQ_CODEL=y
-+CONFIG_NET_SCH_CAKE=y
- CONFIG_NET_SCH_FQ=y
- CONFIG_NET_SCH_INGRESS=y
- CONFIG_NET_CLS_BASIC=y
-@@ -294,11 +294,17 @@ CONFIG_BT=m
- CONFIG_BT_RFCOMM=m
- CONFIG_BT_RFCOMM_TTY=y
- CONFIG_BT_HIDP=m
-+CONFIG_BT_HCIBTUSB=m
-+CONFIG_BT_HCIBTUSB_MTK=y
- CONFIG_BT_HCIBTSDIO=m
- CONFIG_BT_HCIUART=m
+@@ -299,6 +298,8 @@ CONFIG_BT_HCIUART=m
  CONFIG_BT_HCIUART_LL=y
  CONFIG_BT_HCIUART_BCM=y
  CONFIG_BT_HCIUART_QCA=y
-+CONFIG_BT_HCIBFUSB=m
 +CONFIG_CFG80211=m
-+CONFIG_CFG80211_WEXT=y
 +CONFIG_MAC80211=m
  CONFIG_RFKILL=m
  CONFIG_NFC=m
  CONFIG_PCI=y
-@@ -357,6 +363,7 @@ CONFIG_LED_TRIGGER_PHY=y
- CONFIG_AX88796B_PHY=y
- CONFIG_CAN_VCAN=m
- CONFIG_CAN_SLCAN=m
-+CONFIG_CAN_GS_USB=m
- CONFIG_PPP=m
- CONFIG_PPP_BSDCOMP=m
- CONFIG_PPP_DEFLATE=m
-@@ -369,25 +376,35 @@ CONFIG_USB_RTL8152=m
- CONFIG_USB_USBNET=m
- CONFIG_USB_NET_CDC_EEM=m
- # CONFIG_USB_NET_NET1080 is not set
-+CONFIG_USB_NET_RNDIS_HOST=m
- # CONFIG_USB_NET_CDC_SUBSET is not set
- # CONFIG_USB_NET_ZAURUS is not set
- CONFIG_USB_NET_AQC111=m
- # CONFIG_WLAN_VENDOR_ADMTEK is not set
--# CONFIG_WLAN_VENDOR_ATH is not set
-+CONFIG_ATH9K_HTC=m
-+CONFIG_CARL9170=m
- # CONFIG_WLAN_VENDOR_ATMEL is not set
- # CONFIG_WLAN_VENDOR_BROADCOM is not set
- # CONFIG_WLAN_VENDOR_CISCO is not set
- # CONFIG_WLAN_VENDOR_INTEL is not set
- # CONFIG_WLAN_VENDOR_INTERSIL is not set
+@@ -382,12 +383,12 @@ CONFIG_USB_NET_AQC111=m
  # CONFIG_WLAN_VENDOR_MARVELL is not set
--# CONFIG_WLAN_VENDOR_MEDIATEK is not set
--# CONFIG_WLAN_VENDOR_RALINK is not set
+ # CONFIG_WLAN_VENDOR_MEDIATEK is not set
+ # CONFIG_WLAN_VENDOR_RALINK is not set
 -# CONFIG_WLAN_VENDOR_REALTEK is not set
-+CONFIG_MT76x2U=m
-+CONFIG_RT2X00=m
-+CONFIG_RT2800USB=m
-+CONFIG_RT2800USB_RT3573=y
-+CONFIG_RT2800USB_RT53XX=y
-+CONFIG_RT2800USB_RT55XX=y
-+CONFIG_RT2800USB_UNKNOWN=y
-+CONFIG_RTL8187=m
-+CONFIG_RTL8XXXU=m
-+CONFIG_RTL8XXXU_UNTESTED=y
  # CONFIG_WLAN_VENDOR_RSI is not set
  # CONFIG_WLAN_VENDOR_ST is not set
  # CONFIG_WLAN_VENDOR_TI is not set
@@ -76,74 +25,11 @@ index cea2e6714..519e1b025 100644
  CONFIG_WWAN=m
  # CONFIG_WWAN_DEBUGFS is not set
  CONFIG_INPUT_EVDEV=y
-@@ -424,6 +441,7 @@ CONFIG_HW_RANDOM=y
- # CONFIG_DEVMEM is not set
- # CONFIG_DEVPORT is not set
- # CONFIG_I2C_COMPAT is not set
-+CONFIG_I2C_MUX=m
- # CONFIG_I2C_HELPER_AUTO is not set
- # CONFIG_I2C_BRCMSTB is not set
- CONFIG_I3C=y
-@@ -470,13 +488,13 @@ CONFIG_LIRC=y
- CONFIG_RC_DECODERS=y
- CONFIG_RC_DEVICES=y
- # CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
--# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
- # CONFIG_MEDIA_RADIO_SUPPORT is not set
--# CONFIG_MEDIA_SDR_SUPPORT is not set
- # CONFIG_MEDIA_TEST_SUPPORT is not set
- CONFIG_MEDIA_USB_SUPPORT=y
- CONFIG_USB_GSPCA=y
- CONFIG_USB_VIDEO_CLASS=y
-+CONFIG_DVB_USB_V2=m
-+CONFIG_DVB_USB_RTL28XXU=m
- CONFIG_V4L_PLATFORM_DRIVERS=y
- CONFIG_V4L_MEM2MEM_DRIVERS=y
- CONFIG_DRM=y
-@@ -525,7 +543,10 @@ CONFIG_USB_STORAGE=y
- CONFIG_USB_UAS=y
- CONFIG_USB_DWC3=y
- CONFIG_USB_SERIAL=m
-+CONFIG_USB_SERIAL_CH341=m
-+CONFIG_USB_SERIAL_CP210X=m
- CONFIG_USB_SERIAL_FTDI_SIO=m
-+CONFIG_USB_SERIAL_PL2303=m
- CONFIG_USB_GADGET=y
- # CONFIG_USB_BDC_UDC is not set
- CONFIG_USB_CONFIGFS=y
-diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 509d03eb3..95a93403f 100644
---- a/drivers/leds/Kconfig
-+++ b/drivers/leds/Kconfig
-@@ -8,6 +8,7 @@ config LEDS_GPIO_REGISTER
- 
- menuconfig NEW_LEDS
- 	bool "LED Support"
-+	default y
- 	help
- 	  Say Y to enable Linux LED support.  This allows control of supported
- 	  LEDs from both userspace and optionally, by kernel events (triggers).
-@@ -16,6 +17,7 @@ if NEW_LEDS
- 
- config LEDS_CLASS
- 	tristate "LED Class Support"
-+	default y
- 	help
- 	  This option enables the LED sysfs class in /sys/class/leds.  You'll
- 	  need this to do anything useful with LEDs.  If unsure, say Y.
 diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
-index dc6816d36..28593ebb7 100644
+index dc6816d36..3624e3329 100644
 --- a/drivers/leds/trigger/Kconfig
 +++ b/drivers/leds/trigger/Kconfig
-@@ -2,6 +2,7 @@
- menuconfig LEDS_TRIGGERS
- 	bool "LED Trigger support"
- 	depends on LEDS_CLASS
-+	default y
- 	help
- 	  This option enables trigger support for the leds class.
- 	  These triggers allow kernel events to drive the LEDs and can
-@@ -127,6 +128,7 @@ config LEDS_TRIGGER_PANIC
+@@ -127,6 +127,7 @@ config LEDS_TRIGGER_PANIC
  config LEDS_TRIGGER_NETDEV
  	tristate "LED Netdev Trigger"
  	depends on NET
@@ -163,113 +49,30 @@ index cb1c15012..1a8a2e710 100644
  
  config PCMCIA_RAYCS
  	tristate "Aviator/Raytheon 2.4GHz wireless support"
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 2dfb12230..01de03e5c 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -468,6 +468,7 @@ config INET_DIAG_DESTROY
- 
- menuconfig TCP_CONG_ADVANCED
- 	bool "TCP: advanced congestion control"
-+	default y
- 	help
- 	  Support for selection of various TCP congestion control
- 	  modules.
-@@ -481,7 +482,7 @@ if TCP_CONG_ADVANCED
- 
- config TCP_CONG_BIC
- 	tristate "Binary Increase Congestion (BIC) control"
--	default m
-+	default n
- 	help
- 	  BIC-TCP is a sender-side only change that ensures a linear RTT
- 	  fairness under large windows while offering both scalability and
-@@ -495,7 +496,7 @@ config TCP_CONG_BIC
- 
- config TCP_CONG_CUBIC
- 	tristate "CUBIC TCP"
--	default y
-+	default n
- 	help
- 	  This is version 2.0 of BIC-TCP which uses a cubic growth function
- 	  among other techniques.
-@@ -503,7 +504,7 @@ config TCP_CONG_CUBIC
- 
- config TCP_CONG_WESTWOOD
- 	tristate "TCP Westwood+"
--	default m
-+	default n
- 	help
- 	  TCP Westwood+ is a sender-side only modification of the TCP Reno
- 	  protocol stack that optimizes the performance of TCP congestion
-@@ -517,7 +518,7 @@ config TCP_CONG_WESTWOOD
- 
- config TCP_CONG_HTCP
- 	tristate "H-TCP"
--	default m
-+	default n
- 	help
- 	  H-TCP is a send-side only modifications of the TCP Reno
- 	  protocol stack that optimizes the performance of TCP
-@@ -665,7 +666,7 @@ config TCP_CONG_CDG
- 
- config TCP_CONG_BBR
- 	tristate "BBR TCP"
--	default n
-+	default y
- 	help
- 
- 	  BBR (Bottleneck Bandwidth and RTT) TCP congestion control aims to
-@@ -680,7 +681,7 @@ config TCP_CONG_BBR
- 
- choice
- 	prompt "Default TCP congestion control"
--	default DEFAULT_CUBIC
-+	default DEFAULT_BBR
- 	help
- 	  Select the TCP congestion control that will be used by default
- 	  for all connections.
-@@ -724,7 +725,7 @@ endif
- config TCP_CONG_CUBIC
- 	tristate
- 	depends on !TCP_CONG_ADVANCED
--	default y
-+	default n
- 
- config DEFAULT_TCP_CONG
- 	string
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 753bd4f4c..12b49cec4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -3155,7 +3155,7 @@ static void __net_init tcp_set_hashinfo(struct net *net)
- 
- static int __net_init tcp_sk_init(struct net *net)
- {
--	net->ipv4.sysctl_tcp_ecn = 2;
-+	net->ipv4.sysctl_tcp_ecn = 1;
- 	net->ipv4.sysctl_tcp_ecn_fallback = 1;
- 
- 	net->ipv4.sysctl_tcp_base_mss = TCP_BASE_MSS;
-@@ -3225,7 +3225,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_comp_sack_delay_ns = NSEC_PER_MSEC;
- 	net->ipv4.sysctl_tcp_comp_sack_slack_ns = 100 * NSEC_PER_USEC;
- 	net->ipv4.sysctl_tcp_comp_sack_nr = 44;
--	net->ipv4.sysctl_tcp_fastopen = TFO_CLIENT_ENABLE;
-+	net->ipv4.sysctl_tcp_fastopen = 3;
- 	net->ipv4.sysctl_tcp_fastopen_blackhole_timeout = 0;
- 	atomic_set(&net->ipv4.tfo_active_disable_times, 0);
- 
 diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index a61cf6c90..4ea6f4173 100644
+index a61cf6c90..c016c8a37 100644
 --- a/drivers/net/wireless/Makefile
 +++ b/drivers/net/wireless/Makefile
-@@ -22,7 +22,7 @@ obj-$(CONFIG_WLAN_VENDOR_SILABS) += silabs/
+@@ -22,6 +22,7 @@ obj-$(CONFIG_WLAN_VENDOR_SILABS) += silabs/
  obj-$(CONFIG_WLAN_VENDOR_ST) += st/
  obj-$(CONFIG_WLAN_VENDOR_TI) += ti/
  obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
--
 +obj-$(CONFIG_88XXAU) += 88XXau/
+ 
  # 16-bit wireless PCMCIA client drivers
- obj-$(CONFIG_PCMCIA_RAYCS)     += ray_cs.o
- obj-$(CONFIG_PCMCIA_WL3501)    += wl3501_cs.o
+ obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+diff --git a/modules.bzl b/modules.bzl
+index 52d92225a..c959cf399 100644
+--- a/modules.bzl
++++ b/modules.bzl
+@@ -67,6 +67,10 @@ _COMMON_GKI_MODULES_LIST = [
+     "net/rfkill/rfkill.ko",
+     "net/tipc/diag.ko",
+     "net/tipc/tipc.ko",
++    "drivers/leds/trigger/ledtrig-netdev.ko",
++    "drivers/net/wireless/88XXau/88XXau.ko",
++    "net/mac80211/mac80211.ko",
++    "net/wireless/cfg80211.ko",
+ ]
+ 
+ # Deprecated - Use `get_gki_modules_list` function instead.
