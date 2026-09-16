@@ -1,5 +1,5 @@
 diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
-index cea2e6714..613644eeb 100644
+index cea2e6714..519e1b025 100644
 --- a/arch/arm64/configs/gki_defconfig
 +++ b/arch/arm64/configs/gki_defconfig
 @@ -266,6 +265,7 @@ CONFIG_NET_SCH_TBF=y
@@ -10,7 +10,7 @@ index cea2e6714..613644eeb 100644
  CONFIG_NET_SCH_FQ=y
  CONFIG_NET_SCH_INGRESS=y
  CONFIG_NET_CLS_BASIC=y
-@@ -294,11 +294,16 @@ CONFIG_BT=m
+@@ -294,11 +294,17 @@ CONFIG_BT=m
  CONFIG_BT_RFCOMM=m
  CONFIG_BT_RFCOMM_TTY=y
  CONFIG_BT_HIDP=m
@@ -23,11 +23,12 @@ index cea2e6714..613644eeb 100644
  CONFIG_BT_HCIUART_QCA=y
 +CONFIG_BT_HCIBFUSB=m
 +CONFIG_CFG80211=m
++CONFIG_CFG80211_WEXT=y
 +CONFIG_MAC80211=m
  CONFIG_RFKILL=m
  CONFIG_NFC=m
  CONFIG_PCI=y
-@@ -357,6 +362,7 @@ CONFIG_LED_TRIGGER_PHY=y
+@@ -357,6 +363,7 @@ CONFIG_LED_TRIGGER_PHY=y
  CONFIG_AX88796B_PHY=y
  CONFIG_CAN_VCAN=m
  CONFIG_CAN_SLCAN=m
@@ -35,7 +36,7 @@ index cea2e6714..613644eeb 100644
  CONFIG_PPP=m
  CONFIG_PPP_BSDCOMP=m
  CONFIG_PPP_DEFLATE=m
-@@ -369,20 +375,29 @@ CONFIG_USB_RTL8152=m
+@@ -369,25 +376,35 @@ CONFIG_USB_RTL8152=m
  CONFIG_USB_USBNET=m
  CONFIG_USB_NET_CDC_EEM=m
  # CONFIG_USB_NET_NET1080 is not set
@@ -69,7 +70,13 @@ index cea2e6714..613644eeb 100644
  # CONFIG_WLAN_VENDOR_RSI is not set
  # CONFIG_WLAN_VENDOR_ST is not set
  # CONFIG_WLAN_VENDOR_TI is not set
-@@ -424,6 +439,7 @@ CONFIG_HW_RANDOM=y
+ # CONFIG_WLAN_VENDOR_ZYDAS is not set
+ # CONFIG_WLAN_VENDOR_QUANTENNA is not set
++CONFIG_88XXAU=m
+ CONFIG_WWAN=m
+ # CONFIG_WWAN_DEBUGFS is not set
+ CONFIG_INPUT_EVDEV=y
+@@ -424,6 +441,7 @@ CONFIG_HW_RANDOM=y
  # CONFIG_DEVMEM is not set
  # CONFIG_DEVPORT is not set
  # CONFIG_I2C_COMPAT is not set
@@ -77,7 +84,7 @@ index cea2e6714..613644eeb 100644
  # CONFIG_I2C_HELPER_AUTO is not set
  # CONFIG_I2C_BRCMSTB is not set
  CONFIG_I3C=y
-@@ -470,13 +486,13 @@ CONFIG_LIRC=y
+@@ -470,13 +488,13 @@ CONFIG_LIRC=y
  CONFIG_RC_DECODERS=y
  CONFIG_RC_DEVICES=y
  # CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
@@ -93,7 +100,7 @@ index cea2e6714..613644eeb 100644
  CONFIG_V4L_PLATFORM_DRIVERS=y
  CONFIG_V4L_MEM2MEM_DRIVERS=y
  CONFIG_DRM=y
-@@ -525,7 +541,10 @@ CONFIG_USB_STORAGE=y
+@@ -525,7 +543,10 @@ CONFIG_USB_STORAGE=y
  CONFIG_USB_UAS=y
  CONFIG_USB_DWC3=y
  CONFIG_USB_SERIAL=m
@@ -104,6 +111,58 @@ index cea2e6714..613644eeb 100644
  CONFIG_USB_GADGET=y
  # CONFIG_USB_BDC_UDC is not set
  CONFIG_USB_CONFIGFS=y
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index 509d03eb3..95a93403f 100644
+--- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
+@@ -8,6 +8,7 @@ config LEDS_GPIO_REGISTER
+ 
+ menuconfig NEW_LEDS
+ 	bool "LED Support"
++	default y
+ 	help
+ 	  Say Y to enable Linux LED support.  This allows control of supported
+ 	  LEDs from both userspace and optionally, by kernel events (triggers).
+@@ -16,6 +17,7 @@ if NEW_LEDS
+ 
+ config LEDS_CLASS
+ 	tristate "LED Class Support"
++	default y
+ 	help
+ 	  This option enables the LED sysfs class in /sys/class/leds.  You'll
+ 	  need this to do anything useful with LEDs.  If unsure, say Y.
+diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
+index dc6816d36..28593ebb7 100644
+--- a/drivers/leds/trigger/Kconfig
++++ b/drivers/leds/trigger/Kconfig
+@@ -2,6 +2,7 @@
+ menuconfig LEDS_TRIGGERS
+ 	bool "LED Trigger support"
+ 	depends on LEDS_CLASS
++	default y
+ 	help
+ 	  This option enables trigger support for the leds class.
+ 	  These triggers allow kernel events to drive the LEDs and can
+@@ -127,6 +128,7 @@ config LEDS_TRIGGER_PANIC
+ config LEDS_TRIGGER_NETDEV
+ 	tristate "LED Netdev Trigger"
+ 	depends on NET
++	default m
+ 	help
+ 	  This allows LEDs to be controlled by network device activity.
+ 	  If unsure, say Y.
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index cb1c15012..1a8a2e710 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -37,6 +37,7 @@ source "drivers/net/wireless/st/Kconfig"
+ source "drivers/net/wireless/ti/Kconfig"
+ source "drivers/net/wireless/zydas/Kconfig"
+ source "drivers/net/wireless/quantenna/Kconfig"
++source "drivers/net/wireless/88XXau/Kconfig"
+ 
+ config PCMCIA_RAYCS
+ 	tristate "Aviator/Raytheon 2.4GHz wireless support"
 diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
 index 2dfb12230..01de03e5c 100644
 --- a/net/ipv4/Kconfig
@@ -201,3 +260,16 @@ index 753bd4f4c..12b49cec4 100644
  	net->ipv4.sysctl_tcp_fastopen_blackhole_timeout = 0;
  	atomic_set(&net->ipv4.tfo_active_disable_times, 0);
  
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index a61cf6c90..4ea6f4173 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -22,7 +22,7 @@ obj-$(CONFIG_WLAN_VENDOR_SILABS) += silabs/
+ obj-$(CONFIG_WLAN_VENDOR_ST) += st/
+ obj-$(CONFIG_WLAN_VENDOR_TI) += ti/
+ obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
+-
++obj-$(CONFIG_88XXAU) += 88XXau/
+ # 16-bit wireless PCMCIA client drivers
+ obj-$(CONFIG_PCMCIA_RAYCS)     += ray_cs.o
+ obj-$(CONFIG_PCMCIA_WL3501)    += wl3501_cs.o

@@ -55,8 +55,6 @@ cd common
         grep -q "nomount" fs/Makefile || echo 'obj-$(CONFIG_NOMOUNT)		+= nomount/' >> fs/Makefile
         grep -q "nomount" fs/Kconfig || echo 'source "fs/nomount/Kconfig"' >> fs/Kconfig
         
-        sed -i '/config PCMCIA_RAYCS/i source "drivers/net/wireless/88XXau/Kconfig"' drivers/net/wireless/Kconfig
-
         case "$BASE_VER" in
             5.10)
                 echo ">>> Injecting Legacy 5.10 Kconfig Fragment..."
