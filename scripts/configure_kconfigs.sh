@@ -55,11 +55,8 @@ cd common
         grep -q "nomount" fs/Makefile || echo 'obj-$(CONFIG_NOMOUNT)		+= nomount/' >> fs/Makefile
         grep -q "nomount" fs/Kconfig || echo 'source "fs/nomount/Kconfig"' >> fs/Kconfig
         
-        echo ">>> Dynamically wiring 88XXau into Wireless tree..."
-        grep -q "88XXau" drivers/net/wireless/Makefile || echo 'obj-m += 88XXau/' >> drivers/net/wireless/Makefile
-        echo ">>> Forcing ledtrig-netdev linkage to satisfy Bazel..."
-        grep -q "ledtrig-netdev.o" drivers/leds/trigger/Makefile || echo 'obj-m += ledtrig-netdev.o' >> drivers/leds/trigger/Makefile
-        
+        sed -i '/config PCMCIA_RAYCS/i source "drivers/net/wireless/88XXau/Kconfig"' drivers/net/wireless/Kconfig
+
         case "$BASE_VER" in
             5.10)
                 echo ">>> Injecting Legacy 5.10 Kconfig Fragment..."
