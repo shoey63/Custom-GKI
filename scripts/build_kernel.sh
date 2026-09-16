@@ -8,6 +8,13 @@ echo "=== Initializing Execution Engine ==="
 cd kernel_workspace
 mkdir -p ../out out/dist
 
+echo ">>> Dynamically injecting final Kconfig and defconfig overrides..."
+# Bridge the dependency tree
+sed -i '/config PCMCIA_RAYCS/i source "drivers/net/wireless/88XXau/Kconfig"' common/drivers/net/wireless/Kconfig
+# Inject the sorted defconfig flags
+sed -i '/CONFIG_AX88796B_PHY=y/i CONFIG_LEDS_TRIGGER_NETDEV=m' common/arch/arm64/configs/gki_defconfig
+sed -i '/# CONFIG_WLAN_VENDOR_RSI is not set/i CONFIG_88XXAU=m' common/arch/arm64/configs/gki_defconfig
+
 echo ">>> Marking repo as clean (sanitizes all custom configuration & source modifications)..."
 # Dynamically safeguards all modifications 
 git -C common ls-files -m | xargs -r git -C common update-index --assume-unchanged
