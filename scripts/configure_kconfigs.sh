@@ -52,8 +52,8 @@ cd common
         fi  
         
         echo ">>> Dynamically wiring NoMount hooks into VFS tree..."
-        grep -q "nomount" fs/Makefile || echo 'obj-$(CONFIG_NOMOUNT)		+= nomount/' >> fs/Makefile
-        grep -q "nomount" fs/Kconfig || echo 'source "fs/nomount/Kconfig"' >> fs/Kconfig
+        #grep -q "nomount" fs/Makefile || echo 'obj-$(CONFIG_NOMOUNT)		+= nomount/' >> fs/Makefile
+        #grep -q "nomount" fs/Kconfig || echo 'source "fs/nomount/Kconfig"' >> fs/Kconfig
         
         case "$BASE_VER" in
             5.10)
