@@ -25,18 +25,6 @@ index cea2e6714..4388fadcb 100644
  CONFIG_WWAN=m
  # CONFIG_WWAN_DEBUGFS is not set
  CONFIG_INPUT_EVDEV=y
-diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
-index dc6816d36..3624e3329 100644
---- a/drivers/leds/trigger/Kconfig
-+++ b/drivers/leds/trigger/Kconfig
-@@ -127,6 +127,7 @@ config LEDS_TRIGGER_PANIC
- config LEDS_TRIGGER_NETDEV
- 	tristate "LED Netdev Trigger"
- 	depends on NET
-+	default m
- 	help
- 	  This allows LEDs to be controlled by network device activity.
- 	  If unsure, say Y.
 diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
 index cb1c15012..1a8a2e710 100644
 --- a/drivers/net/wireless/Kconfig
@@ -65,11 +53,10 @@ diff --git a/modules.bzl b/modules.bzl
 index 52d92225a..c959cf399 100644
 --- a/modules.bzl
 +++ b/modules.bzl
-@@ -67,6 +67,10 @@ _COMMON_GKI_MODULES_LIST = [
+@@ -67,6 +67,9 @@ _COMMON_GKI_MODULES_LIST = [
      "net/rfkill/rfkill.ko",
      "net/tipc/diag.ko",
      "net/tipc/tipc.ko",
-+    "drivers/leds/trigger/ledtrig-netdev.ko",
 +    "drivers/net/wireless/88XXau/88XXau.ko",
 +    "net/mac80211/mac80211.ko",
 +    "net/wireless/cfg80211.ko",
