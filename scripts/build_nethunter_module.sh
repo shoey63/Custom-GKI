@@ -50,14 +50,12 @@ else
 
     # 1. INDEPENDENT HOOKS & SUBSYSTEMS
     insmod "$MODDIR/rfkill.ko" 2>/dev/null
-    insmod "$MODDIR/ledtrig-netdev.ko" 2>/dev/null
 
     # 2. THE WIRELESS SPINE (Strict bottom-up order)
     insmod "$MODDIR/cfg80211.ko" 2>/dev/null
     insmod "$MODDIR/mac80211.ko" 2>/dev/null
     
     # 3. WI-FI ADAPTERS
-    insmod "$MODDIR/rtl8xxxu.ko" 2>/dev/null
     insmod "$MODDIR/88XXau.ko" 2>/dev/null
 
     sleep 1

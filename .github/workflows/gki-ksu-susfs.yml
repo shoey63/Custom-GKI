@@ -436,9 +436,7 @@ jobs:
           # ---------------------------------------------------------
           if [ "$REPACK_ENABLED" != "true" ]; then
             echo "ARTIFACT_NAME=${{ inputs.root_manager }}-${{ inputs.target_version }}-AK3" >> $GITHUB_ENV
-            cd AnyKernel3-Builder
-            zip -r9 "../out/final/${{ inputs.root_manager }}-${{ inputs.target_version }}-AK3.zip" *
-            cd ..
+            cp -r AnyKernel3-Builder/* out/final/
           else
             echo "ARTIFACT_NAME=${SAFE_BUILD_NAME}" >> $GITHUB_ENV
             cd AnyKernel3-Builder
@@ -448,7 +446,7 @@ jobs:
 
           echo ">>> Final Artifact Directory:"
           ls -lah out/final/
-
+          
       - name: Build NetHunter KernelSU Module
         run: |
           echo ">>> Staging compiled wireless modules..."
@@ -461,13 +459,11 @@ jobs:
           # 2. Define the target driver patterns
           MODULE_PATTERNS=(
               # Core Subsystem Spines
+              "rfkill.ko"
               "cfg80211.ko"
               "mac80211.ko"
-              "rfkill.ko"
-              "ledtrig-netdev.ko"
-
+              
               # Wi-Fi Adapters
-              "rtl8xxxu.ko"
               "88XXau.ko"
           )
 
