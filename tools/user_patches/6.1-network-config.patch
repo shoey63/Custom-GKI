@@ -21,7 +21,7 @@ index cea2e6714..4388fadcb 100644
  # CONFIG_WLAN_VENDOR_TI is not set
  # CONFIG_WLAN_VENDOR_ZYDAS is not set
  # CONFIG_WLAN_VENDOR_QUANTENNA is not set
-+CONFIG_88XXAU=m
++CONFIG_RTL8812AU=m
  CONFIG_WWAN=m
  # CONFIG_WWAN_DEBUGFS is not set
  CONFIG_INPUT_EVDEV=y
@@ -33,7 +33,7 @@ index cb1c15012..1a8a2e710 100644
  source "drivers/net/wireless/ti/Kconfig"
  source "drivers/net/wireless/zydas/Kconfig"
  source "drivers/net/wireless/quantenna/Kconfig"
-+source "drivers/net/wireless/88XXau/Kconfig"
++source "drivers/net/wireless/rtl8812au/Kconfig"
  
  config PCMCIA_RAYCS
  	tristate "Aviator/Raytheon 2.4GHz wireless support"
@@ -45,7 +45,7 @@ index a61cf6c90..c016c8a37 100644
  obj-$(CONFIG_WLAN_VENDOR_ST) += st/
  obj-$(CONFIG_WLAN_VENDOR_TI) += ti/
  obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
-+obj-$(CONFIG_88XXAU) += 88XXau/
++obj-$(CONFIG_RTL8812AU) += rtl8812au/
  
  # 16-bit wireless PCMCIA client drivers
  obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
@@ -57,7 +57,7 @@ index 52d92225a..c959cf399 100644
      "net/rfkill/rfkill.ko",
      "net/tipc/diag.ko",
      "net/tipc/tipc.ko",
-+    "drivers/net/wireless/88XXau/88XXau.ko",
++    "drivers/net/wireless/rtl8812au/8812au.ko",
 +    "net/mac80211/mac80211.ko",
 +    "net/wireless/cfg80211.ko",
  ]
