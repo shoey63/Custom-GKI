@@ -15,6 +15,7 @@ ccflags-y += -Wno-unused-variable
 #ccflags-y += -Wno-unused-function
 ccflags-y += -Wno-unused
 ccflags-y += -Wno-uninitialized
+ccflags-y += -Wno-header-guard
 ccflags-y += -Wno-vla
 ccflags-y += -Wno-misleading-indentation
 ccflags-y += -Wno-implicit-fallthrough
