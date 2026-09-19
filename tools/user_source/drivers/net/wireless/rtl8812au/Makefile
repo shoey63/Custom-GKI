@@ -2591,3 +2591,5 @@ clean:
 	rm -fr .tmp_versions
 	rm -fr MOK.der MOK.priv
 endif
+ccflags-y += -Wno-switch-bool
+ccflags-y += -Wno-parentheses-equality
