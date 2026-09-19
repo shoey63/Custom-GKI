@@ -35,8 +35,6 @@ ccflags-y += -Wframe-larger-than=1648
 ccflags-y += -Wno-cast-function-type
 
 # gcc-13
-ccflags-y += -Wno-enum-int-mismatch
-ccflags-y += -Wno-stringop-overread
 ccflags-y += -Wno-enum-conversion
 ccflags-y += -Wno-int-in-bool-context
 ccflags-y += -Wno-missing-prototypes
