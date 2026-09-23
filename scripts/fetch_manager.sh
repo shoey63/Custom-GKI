@@ -10,15 +10,18 @@ UPSTREAM_HASH="${3:-}"
 # ==========================================
 # ROOT MANAGER FETCH LOGIC
 # ==========================================
-echo ">>> Mapping selected variant to upstream repository..."
 if [[ "${VARIANT}" == "KernelSU-Next" ]]; then
     REPO="KernelSU-Next/KernelSU-Next"
+    TARGET_BRANCH="dev"
 elif [[ "${VARIANT}" == "SukiSU-Ultra" ]]; then
     REPO="SukiSU-Ultra/SukiSU-Ultra"
+    TARGET_BRANCH="main"
 elif [[ "${VARIANT}" == "ReSukiSU" ]]; then
     REPO="ReSukiSU/ReSukiSU"
+    TARGET_BRANCH="main"
 elif [[ "${VARIANT}" == "KernelSU" ]]; then
     REPO="tiann/KernelSU"
+    TARGET_BRANCH="main"
 else
     echo "[-] Error: Unsupported Variant '${VARIANT}'." >&2
     exit 1
@@ -60,12 +63,12 @@ done
 # 2. WALK BACKWARDS THROUGH MAIN COMMITS
 # ==========================================
 if [ -z "$DOWNLOAD_URLS" ]; then
-    echo "[-] Exact match missing or lacked artifacts. Walking backward through recent successful main branch runs..."
+    echo "[-] Exact match missing or lacked artifacts. Walking backward through recent successful ${TARGET_BRANCH} branch runs..."
     
     # The API returns these ordered from newest to oldest by default
     RECENT_RUNS=$(curl -s -H "Authorization: token $GH_TOKEN" \
-      "https://api.github.com/repos/$REPO/actions/runs?branch=main&status=success&per_page=20")
-    
+      "https://api.github.com/repos/$REPO/actions/runs?branch=${TARGET_BRANCH}&status=success&per_page=20")
+ 
     RECENT_RUN_IDS=$(echo "$RECENT_RUNS" | jq -r '.workflow_runs[]?.id // empty')
     
     for ID in $RECENT_RUN_IDS; do
