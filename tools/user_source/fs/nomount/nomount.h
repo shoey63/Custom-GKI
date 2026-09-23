@@ -5,16 +5,13 @@
 #include <linux/idr.h>
 #include <linux/list.h>
 #include <linux/hashtable.h>
-#include <linux/rbtree.h>
 #include <linux/rcupdate.h>
 #include <linux/rwsem.h>
-#include <linux/srcu.h>
 #include <linux/atomic.h>
 #include <linux/file.h>
 #include <linux/key-type.h>
 #include <linux/highmem.h>
 #include <linux/version.h>
-#include <linux/jump_label.h>
 #include <linux/compat.h>
 
 #define NOMOUNT_VERSION "20"
@@ -34,17 +31,19 @@
 #define nm_warn(fmt, ...) printk(KERN_WARNING "NoMount: [WARN] " fmt, ##__VA_ARGS__)
 #define nm_err(fmt, ...)  printk(KERN_ERR "NoMount: [ERROR] " fmt, ##__VA_ARGS__)
 
-static struct rb_root_cached nomount_rules_tree = RB_ROOT_CACHED;
-struct nm_uid_array __rcu *nomount_uids = NULL;
+static struct nm_uid_array __rcu *nomount_uids = NULL;
+static DEFINE_HASHTABLE(nomount_rules_ht, 12);
+static DEFINE_MUTEX(nomount_mutex);
 static LIST_HEAD(nomount_sb_list);
-static DECLARE_RWSEM(nomount_rwsem);
-DEFINE_STATIC_SRCU(nomount_srcu);
 
 /* * Helpers to dynamically calculate the memory address of the strings / structs */
 #define nm_get_vpath(rule) ((rule)->paths)
 #define nm_get_rpath(rule) ((rule)->paths + (rule)->v_len + 1)
 #define nm_get_child_name(rule) (nm_get_vpath(rule) + (rule)->v_len - (rule)->child_len)
 #define nm_get_child_rules(array) ((struct nomount_rule **)((array)->hashes + (array)->capacity))
+#define nm_children_is_single(children) ((unsigned long)(children) & 1UL)
+#define nm_children_single_rule(children) ((struct nomount_rule *)((unsigned long)(children) & ~1UL))
+#define nm_children_from_single(rule) ((void *)((unsigned long)(rule) | 1UL))
 #define nm_dir_tag(dir_node) READ_ONCE((dir_node)->_tag_ptr)
 #define nm_dir_is_virtual(dir_node) (nm_dir_tag((dir_node)) & 1UL)
 #define nm_dir_set_owner(dir_node, owner) WRITE_ONCE((dir_node)->_tag_ptr, (unsigned long)(owner) | 1UL)
@@ -96,7 +95,7 @@ struct nomount_child_array {
 
 struct nomount_dir_node {
     struct rcu_head rcu;
-    struct nomount_child_array __rcu *children;
+    void __rcu *children;
     u64 bloom_mask;
     struct inode *v_inode;
     union {
@@ -106,7 +105,6 @@ struct nomount_dir_node {
             struct nm_fop __rcu *fop;
         };
     };
-    seqcount_t seq;
 };
 
 struct nomount_rule {
@@ -121,10 +119,7 @@ struct nomount_rule {
     u16 flags;
 
     struct nomount_dir_node *parent_dir;
-    union {
-        struct rb_node rb_node;
-        struct hlist_node vpath_node;
-    };
+    struct hlist_node ht_node;
     char paths[];
 };
 
@@ -154,7 +149,7 @@ static const struct inode_operations nm_dir_iops;
 static struct dentry *nomount_hijacked_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags);
 static int nomount_hijacked_iterate_dir(struct file *file, struct dir_context *ctx);
 static void nomount_hijacked_destroy_inode(struct inode *inode);
-static void nomount_hijack_dentry_ops(struct inode *dir, struct dentry *dentry);
+static void nomount_hijack_dentry_ops(struct inode *dir, struct dentry *dentry, bool injected);
 static void nm_free_rule(struct nomount_rule *rule);
 
 /* =====================================================================
@@ -185,62 +180,12 @@ static inline int nm_unpack_pos(loff_t pos) {
     return (int)(pos & 0xFFFFFFFF);
 }
 
-/** RBTree Protocol ****/
-static struct nomount_rule *nm_tree_search_path(u32 hash, u16 len, const char *path)
-{
-    struct rb_node *node = nomount_rules_tree.rb_root.rb_node;
-    while (node) {
-        struct nomount_rule *r = rb_entry(node, struct nomount_rule, rb_node);
-        int cmp = (hash != r->v_hash) ? (hash < r->v_hash ? -1 : 1) :
-                  (len != r->v_len)   ? (len < r->v_len ? -1 : 1) :
-                  memcmp(path, nm_get_vpath(r), len);
-
-        if (!cmp) return r;
-        node = cmp < 0 ? node->rb_left : node->rb_right;
-    }
-    return NULL;
-}
-
-static struct nomount_rule *nm_tree_search_exact(u32 hash, u16 len, const char *path, unsigned int uid)
-{
-    struct rb_node *node = nomount_rules_tree.rb_root.rb_node;
-    while (node) {
-        struct nomount_rule *r = rb_entry(node, struct nomount_rule, rb_node);
-        int cmp = (hash != r->v_hash) ? (hash < r->v_hash ? -1 : 1) :
-                  (len != r->v_len)   ? (len < r->v_len ? -1 : 1) :
-                  (cmp = memcmp(path, nm_get_vpath(r), len)) ? cmp :
-                  (uid != r->target_uid) ? (uid < r->target_uid ? -1 : 1) : 0;
-
-        if (!cmp) return r;
-        node = cmp < 0 ? node->rb_left : node->rb_right;
-    }
-    return NULL;
-}
-
-static void nm_tree_insert(struct nomount_rule *new_rule)
-{
-    struct rb_node **link = &nomount_rules_tree.rb_root.rb_node, *parent = NULL;
-    bool leftmost = true;
-    while (*link) {
-        parent = *link;
-        struct nomount_rule *r = rb_entry(parent, struct nomount_rule, rb_node);
-        int cmp = (new_rule->v_hash != r->v_hash) ? (new_rule->v_hash < r->v_hash ? -1 : 1) :
-                  (new_rule->v_len != r->v_len)   ? (new_rule->v_len < r->v_len ? -1 : 1) :
-                  (cmp = memcmp(nm_get_vpath(new_rule), nm_get_vpath(r), new_rule->v_len)) ? cmp :
-                  (new_rule->target_uid != r->target_uid) ? (new_rule->target_uid < r->target_uid ? -1 : 1) : 0;
-
-        link = cmp < 0 ? &parent->rb_left : (leftmost = false, &parent->rb_right);
-    }
-    rb_link_node(&new_rule->rb_node, parent, link);
-    rb_insert_color_cached(&new_rule->rb_node, &nomount_rules_tree, leftmost);
-}
-
 /* --- UIDs Array RCU Management --- */
 static inline int nm_uid_add(uid_t target)
 {
     struct nm_uid_array *old, *new_arr;
     int count = 0;
-    if ((old = rcu_dereference_protected(nomount_uids, lockdep_is_held(&nomount_rwsem)))) {
+    if ((old = rcu_dereference_protected(nomount_uids, lockdep_is_held(&nomount_mutex)))) {
         for (int i = 0; i < (count = old->count); i++) if (old->uids[i] == target) return -EEXIST;
     }
 
@@ -258,7 +203,7 @@ static inline int nm_uid_del(uid_t target)
     struct nm_uid_array *old, *new_arr = NULL;
     int count, target_idx = -1;
 
-    if (!(old = rcu_dereference_protected(nomount_uids, lockdep_is_held(&nomount_rwsem)))) return -ENOENT;
+    if (!(old = rcu_dereference_protected(nomount_uids, lockdep_is_held(&nomount_mutex)))) return -ENOENT;
     for (int i = 0; i < (count = old->count); i++) if (old->uids[i] == target) { target_idx = i; break; }
     if (target_idx < 0) return -ENOENT;
 
@@ -417,4 +362,3 @@ static inline const struct dentry_operations *nm_get_orig_dops(struct nm_iop *io
 }
 
 #endif /* _LINUX_NOMOUNT_H */
-
