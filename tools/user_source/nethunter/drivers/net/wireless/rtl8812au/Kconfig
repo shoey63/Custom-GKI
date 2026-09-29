@@ -1,0 +1,5 @@
+config RTL8812AU
+	tristate "Realtek 8812A USB WiFi"
+	help
+	  Help message of RTL8812AU
+

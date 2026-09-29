@@ -1,0 +1,38 @@
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index cb1c15012..1a8a2e710 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -37,6 +37,7 @@ source "drivers/net/wireless/st/Kconfig"
+ source "drivers/net/wireless/ti/Kconfig"
+ source "drivers/net/wireless/zydas/Kconfig"
+ source "drivers/net/wireless/quantenna/Kconfig"
++source "drivers/net/wireless/rtl8812au/Kconfig"
+ 
+ config PCMCIA_RAYCS
+ 	tristate "Aviator/Raytheon 2.4GHz wireless support"
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index a61cf6c90..c016c8a37 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -22,6 +22,7 @@ obj-$(CONFIG_WLAN_VENDOR_SILABS) += silabs/
+ obj-$(CONFIG_WLAN_VENDOR_ST) += st/
+ obj-$(CONFIG_WLAN_VENDOR_TI) += ti/
+ obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
++obj-$(CONFIG_RTL8812AU) += rtl8812au/
+ 
+ # 16-bit wireless PCMCIA client drivers
+ obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+diff --git a/modules.bzl b/modules.bzl
+index 52d92225a..c959cf399 100644
+--- a/modules.bzl
++++ b/modules.bzl
+@@ -67,6 +67,9 @@ _COMMON_GKI_MODULES_LIST = [
+     "net/rfkill/rfkill.ko",
+     "net/tipc/diag.ko",
+     "net/tipc/tipc.ko",
++    "drivers/net/wireless/rtl8812au/8812au.ko",
++    "net/mac80211/mac80211.ko",
++    "net/wireless/cfg80211.ko",
+ ]
+ 
+ # Deprecated - Use `get_gki_modules_list` function instead.

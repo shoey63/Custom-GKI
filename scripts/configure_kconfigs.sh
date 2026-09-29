@@ -4,6 +4,7 @@ set -euo pipefail
 
 ENABLE_NOMOUNT=${ENABLE_NOMOUNT:-false}
 ENABLE_NET_OPTS=${ENABLE_NET_OPTS:-false}
+ENABLE_NETHUNTER=${ENABLE_NETHUNTER:-false}
 BASE_VER=${BASE_VER:-}
 
 COMBINED_FRAG="$(pwd)/tools/custom_combined.fragment"
@@ -53,6 +54,12 @@ cd common
     if [ "$ENABLE_NET_OPTS" = "true" ] && [ -f "../../tools/net_opts.fragment" ]; then
         echo ">>> Appending Network Optimization Kconfigs..."
         cat "../../tools/net_opts.fragment" >> "$COMBINED_FRAG"
+        echo "" >> "$COMBINED_FRAG"
+    fi
+    
+    if [ "$ENABLE_NETHUNTER" = "true" ] && [ -f "../../tools/nethunter.fragment" ]; then
+        echo ">>> Appending NetHunter Kconfigs..."
+        cat "../../tools/nethunter.fragment" >> "$COMBINED_FRAG"
         echo "" >> "$COMBINED_FRAG"
     fi
     

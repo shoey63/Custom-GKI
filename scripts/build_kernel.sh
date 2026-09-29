@@ -88,7 +88,7 @@ else
 fi
 
 # --- DYNAMIC KCONFIG VALIDATION REPORT ---
-if [ "$ENABLE_NOMOUNT" = "true" ] || [ "$ENABLE_NET_OPTS" = "true" ]; then
+if [ "$ENABLE_NOMOUNT" = "true" ] || [ "$ENABLE_NET_OPTS" = "true" ] || [ "$ENABLE_NETHUNTER" = "true" ]; then
     echo "::group::Custom Kconfig Integration Report"
     echo ""
     echo "=============================================="

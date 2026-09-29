@@ -50,6 +50,12 @@ on:
         type: boolean
         default: false
         
+      enable_nethunter:
+        description: "Inject Kali NetHunter Core"
+        required: false
+        type: boolean
+        default: false
+        
       ota_url:
         description: "Full OTA ZIP URL (blank produces AK3 zip)"
         required: false
@@ -307,82 +313,94 @@ jobs:
         env:
           ENABLE_NOMOUNT: ${{ inputs.enable_nomount }}
           ENABLE_NET_OPTS: ${{ inputs.enable_net_opts }}
+          ENABLE_NETHUNTER: ${{ inputs.enable_nethunter }}
         run: |
           chmod +x scripts/configure_kconfigs.sh
           ./scripts/configure_kconfigs.sh
 
       - name: Inject User Source Files
-        if: inputs.enable_nomount == true || inputs.enable_net_opts == true
         env:
           ENABLE_NOMOUNT: ${{ inputs.enable_nomount }}
+          ENABLE_NETHUNTER: ${{ inputs.enable_nethunter }}
         run: |
           if [ "$ENABLE_NOMOUNT" = "true" ]; then
             echo ">>> Fetching pinned nomount source..."
-            NOMOUNT_DIR="$(pwd)/tools/user_source/fs/nomount"
+            NOMOUNT_DIR="$(pwd)/tools/user_source/nomount/fs/nomount"
+            mkdir -p "$NOMOUNT_DIR"
             NOMOUNT_COMMIT="6b1be186322d4e0bdc465cf27f6fc0d3679087c6"
-            
-            # Export to GITHUB_ENV so the Artifact fetcher can use it later
             echo "NOMOUNT_COMMIT=${NOMOUNT_COMMIT}" >> $GITHUB_ENV
-            
-            # Force overwrite the existing .c and .h files with the pinned working versions
             curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
             curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
           fi
 
-          echo ">>> Injecting user source files into common tree..."
-          shopt -s dotglob nullglob
+          echo ">>> Injecting active user source files into common tree..."
+          cd kernel_workspace/common
           
-          # Only attempt to copy if there are actually files in the directory
-          SRC_FILES=($(pwd)/tools/user_source/*)
-          if [ ${#SRC_FILES[@]} -gt 0 ]; then
-            cp -r "$(pwd)/tools/user_source/"* kernel_workspace/common/
-            echo "  -> Files injected successfully."
-          else
-            echo "  -> No files found in tools/user_source/ to inject."
+          # 1. Base files (Root of tools/user_source) - FILES ONLY to avoid pulling inactive module folders
+          [ -d "../../tools/user_source" ] && find ../../tools/user_source -maxdepth 1 -type f -exec cp -v {} . \;
+          
+          # 2. Module: NoMount
+          if [ "$ENABLE_NOMOUNT" = "true" ] && [ -d "../../tools/user_source/nomount" ]; then
+            echo "  -> Injecting NoMount source tree..."
+            cp -r ../../tools/user_source/nomount/* . 2>/dev/null || true
+          fi
+          
+          # 3. Module: NetHunter
+          if [ "$ENABLE_NETHUNTER" = "true" ] && [ -d "../../tools/user_source/nethunter" ]; then
+            echo "  -> Injecting NetHunter source tree..."
+            cp -r ../../tools/user_source/nethunter/* . 2>/dev/null || true
           fi
           
           echo ">>> Source injection phase complete."
         shell: bash
 
       - name: Apply User Patches
-        if: inputs.enable_nomount == true || inputs.enable_net_opts == true
+        env:
+          ENABLE_NET_OPTS: ${{ inputs.enable_net_opts }}
+          ENABLE_NETHUNTER: ${{ inputs.enable_nethunter }}
         run: |
-          PATCH_DIR="$(pwd)/tools/user_patches"
-          
           echo ">>> Target Base Version for patches: $BASE_VER"
-
-          if [ -d "$PATCH_DIR" ]; then
-            cd kernel_workspace/common
-            shopt -s nullglob
-            patches=("$PATCH_DIR"/*.patch)
-
-            if [ ${#patches[@]} -gt 0 ]; then
-              echo ">>> User patches detected. Filtering by version..."
-
-              for patch_file in "${patches[@]}"; do
-                filename=$(basename "$patch_file")
-                
-                # Condition 1: Exact BASE_VER match (e.g., 6.1-0001-fix.patch)
-                if [[ "$filename" == "${BASE_VER}-"* ]]; then
-                  echo "  -> [MATCH] Applying version-specific patch: $filename..."
-                  patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
-                  
-                # Condition 2: Matches any other kernel version prefix (e.g., 6.6-0005.patch)
-                elif [[ "$filename" =~ ^[0-9]+\.[0-9]+- ]]; then
-                  continue # Silently skip non-matching versions
-                  
-                # Condition 3: Universal patch (e.g., 0007-security-fix.patch)
-                else
-                  echo "  -> [GENERIC] Applying generic patch: $filename..."
-                  patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
-                fi
-              done
-              echo ">>> Patching routine complete."
-            else
-              echo ">>> No .patch files found in tools/user_patches/."
+          cd kernel_workspace/common
+          
+          # Universal patch function to keep logic clean and scalable
+          apply_patch_dir() {
+            local pdir=$1
+            if [ -d "$pdir" ]; then
+              shopt -s nullglob
+              local patches=("$pdir"/*.patch)
+              if [ ${#patches[@]} -gt 0 ]; then
+                echo ">>> Processing patches in $(basename "$pdir")..."
+                for patch_file in "${patches[@]}"; do
+                  local filename=$(basename "$patch_file")
+                  if [[ "$filename" == "${BASE_VER}-"* ]]; then
+                    echo "  -> [MATCH] Applying version-specific patch: $filename..."
+                    patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
+                  elif [[ "$filename" =~ ^[0-9]+\.[0-9]+- ]]; then
+                    continue
+                  else
+                    echo "  -> [GENERIC] Applying generic patch: $filename..."
+                    patch -p1 --no-backup-if-mismatch < "$patch_file" || { echo "[-] Patch failed: $filename"; exit 1; }
+                  fi
+                done
+              fi
+              shopt -u nullglob
             fi
-            cd ../..
+          }
+
+          # 1. Root Patches (Always active)
+          apply_patch_dir "../../tools/user_patches"
+          
+          # 2. Module: Network Optimizations
+          if [ "$ENABLE_NET_OPTS" = "true" ]; then
+            apply_patch_dir "../../tools/user_patches/net_opts"
           fi
+          
+          # 3. Module: NetHunter
+          if [ "$ENABLE_NETHUNTER" = "true" ]; then
+            apply_patch_dir "../../tools/user_patches/nethunter"
+          fi
+          
+          echo ">>> Patching routine complete."
         shell: bash
 
       - name: Build common kernel Image
@@ -390,6 +408,7 @@ jobs:
           ENABLE_NOMOUNT: ${{ inputs.enable_nomount }}
           ENABLE_NET_OPTS: ${{ inputs.enable_net_opts }}
           ROOT_MANAGER: ${{ inputs.root_manager }}
+          ENABLE_NETHUNTER: ${{ inputs.enable_nethunter }}
         run: |
           # Injecting the REAL Google identity into the script session
           OFFICIAL_HASH=${{ env.OFFICIAL_HASH }} \
