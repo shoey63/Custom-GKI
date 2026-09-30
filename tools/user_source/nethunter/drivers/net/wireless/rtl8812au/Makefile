@@ -1,5 +1,9 @@
 ccflags-y += $(USER_ccflags-y)
 ccflags-y += -O1
+
+ccflags-y += -fno-sanitize=kcfi
+ccflags-y += -fno-sanitize=cfi
+
 #ccflags-y += -O2 -std=gnu11 -Wno-declaration-after-statement
 #ccflags-y += -O3
 #ccflags-y += -Wall
