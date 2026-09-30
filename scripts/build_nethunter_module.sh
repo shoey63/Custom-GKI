@@ -79,10 +79,4 @@ EOF
 
 chmod +x "$MODULE_DIR"/*.sh
 
-# 7. Package the flashable zip
-echo ">>> Zipping module for KernelSU/Magisk..."
-cd "$MODULE_DIR"
-zip -r9 "../$ZIP_NAME" ./*
-cd ..
-
-echo ">>> Surgical NetHunter Module ($ZIP_NAME) ready!"
+echo ">>> Surgical NetHunter Module directory ready for GitHub upload!"

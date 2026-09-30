@@ -540,9 +540,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.SAFE_BUILD_NAME }}-NetHunter-Module
-          path: ${{ env.SAFE_BUILD_NAME }}-NetHunter-Module.zip
+          path: ksu_nethunter_module/
           if-no-files-found: error
-          
+
       - name: Fetch Matching Manager APK
         if: inputs.root_manager != 'Stock' && inputs.enable_ksu_susfs == true
         id: fetch_manager
