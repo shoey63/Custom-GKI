@@ -1,75 +1,54 @@
-cat << 'EOF' > tools/user_patches/nethunter/6.1-network-config.patch
 diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
-index cea2e6714..4388fadcb 100644
+index 16adb7019..a115509d7 100644
 --- a/arch/arm64/configs/gki_defconfig
 +++ b/arch/arm64/configs/gki_defconfig
-@@ -95,7 +94,6 @@ CONFIG_PKVM_MODULE_PATH="/lib/modules/"
- CONFIG_KPROBES=y
- CONFIG_JUMP_LABEL=y
- CONFIG_SHADOW_CALL_STACK=y
--CONFIG_CFI_CLANG=y
- CONFIG_MODULES=y
- CONFIG_MODULE_UNLOAD=y
- CONFIG_MODVERSIONS=y
-@@ -298,6 +296,8 @@ CONFIG_BT_HCIUART=m
+@@ -298,6 +298,9 @@ CONFIG_BT_HCIUART=m
  CONFIG_BT_HCIUART_LL=y
  CONFIG_BT_HCIUART_BCM=y
  CONFIG_BT_HCIUART_QCA=y
 +CONFIG_CFG80211=m
 +CONFIG_MAC80211=m
++CONFIG_MAC80211_LEDS=y
  CONFIG_RFKILL=m
  CONFIG_NFC=m
  CONFIG_PCI=y
-@@ -382,12 +382,12 @@ CONFIG_USB_NET_AQC111=m
+@@ -379,7 +382,7 @@ CONFIG_USB_NET_AQC111=m
+ # CONFIG_WLAN_VENDOR_INTEL is not set
+ # CONFIG_WLAN_VENDOR_INTERSIL is not set
  # CONFIG_WLAN_VENDOR_MARVELL is not set
- # CONFIG_WLAN_VENDOR_MEDIATEK is not set
+-# CONFIG_WLAN_VENDOR_MEDIATEK is not set
++CONFIG_MT76x2U=m
  # CONFIG_WLAN_VENDOR_RALINK is not set
--# CONFIG_WLAN_VENDOR_REALTEK is not set
+ # CONFIG_WLAN_VENDOR_REALTEK is not set
  # CONFIG_WLAN_VENDOR_RSI is not set
- # CONFIG_WLAN_VENDOR_ST is not set
- # CONFIG_WLAN_VENDOR_TI is not set
- # CONFIG_WLAN_VENDOR_ZYDAS is not set
- # CONFIG_WLAN_VENDOR_QUANTENNA is not set
-+CONFIG_RTL8812AU=m
- CONFIG_WWAN=m
- # CONFIG_WWAN_DEBUGFS is not set
- CONFIG_INPUT_EVDEV=y
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index cb1c15012..1a8a2e710 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -37,6 +37,7 @@ source "drivers/net/wireless/st/Kconfig"
- source "drivers/net/wireless/ti/Kconfig"
- source "drivers/net/wireless/zydas/Kconfig"
- source "drivers/net/wireless/quantenna/Kconfig"
-+source "drivers/net/wireless/rtl8812au/Kconfig"
- 
- config PCMCIA_RAYCS
- 	tristate "Aviator/Raytheon 2.4GHz wireless support"
-diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index a61cf6c90..c016c8a37 100644
---- a/drivers/net/wireless/Makefile
-+++ b/drivers/net/wireless/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_WLAN_VENDOR_SILABS) += silabs/
- obj-$(CONFIG_WLAN_VENDOR_ST) += st/
- obj-$(CONFIG_WLAN_VENDOR_TI) += ti/
- obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
-+obj-$(CONFIG_RTL8812AU) += rtl8812au/
- 
- # 16-bit wireless PCMCIA client drivers
- obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
 diff --git a/modules.bzl b/modules.bzl
-index 52d92225a..c959cf399 100644
+index 52d92225a..176a4189a 100644
 --- a/modules.bzl
 +++ b/modules.bzl
-@@ -67,6 +67,9 @@ _COMMON_GKI_MODULES_LIST = [
+@@ -34,6 +34,12 @@ _COMMON_GKI_MODULES_LIST = [
+     "drivers/net/usb/r8153_ecm.ko",
+     "drivers/net/usb/rtl8150.ko",
+     "drivers/net/usb/usbnet.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76-usb.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x02-lib.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x02-usb.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x2/mt76x2-common.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x2/mt76x2u.ko",
+     "drivers/net/wwan/wwan.ko",
+     "drivers/usb/class/cdc-acm.ko",
+     "drivers/usb/serial/ftdi_sio.ko",
+@@ -62,11 +68,13 @@ _COMMON_GKI_MODULES_LIST = [
+     "net/ieee802154/ieee802154_socket.ko",
+     "net/l2tp/l2tp_core.ko",
+     "net/l2tp/l2tp_ppp.ko",
++    "net/mac80211/mac80211.ko",
+     "net/mac802154/mac802154.ko",
+     "net/nfc/nfc.ko",
      "net/rfkill/rfkill.ko",
      "net/tipc/diag.ko",
      "net/tipc/tipc.ko",
-+    "drivers/net/wireless/rtl8812au/8812au.ko",
-+    "net/mac80211/mac80211.ko",
 +    "net/wireless/cfg80211.ko",
  ]
  
  # Deprecated - Use `get_gki_modules_list` function instead.
-EOF

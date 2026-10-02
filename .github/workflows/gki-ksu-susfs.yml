@@ -327,7 +327,7 @@ jobs:
             echo ">>> Fetching pinned nomount source..."
             NOMOUNT_DIR="$(pwd)/tools/user_source/nomount/fs/nomount"
             mkdir -p "$NOMOUNT_DIR"
-            NOMOUNT_COMMIT="6b1be186322d4e0bdc465cf27f6fc0d3679087c6"
+            NOMOUNT_COMMIT="74850fca15a6e12d2e9173c2f91a6d083d388a87"
             echo "NOMOUNT_COMMIT=${NOMOUNT_COMMIT}" >> $GITHUB_ENV
             curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
             curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
@@ -506,8 +506,13 @@ jobs:
               "cfg80211.ko"
               "mac80211.ko"
               
-              # Wi-Fi Adapters
-              "8812au.ko"
+              # MediaTek ALFA AWUS036ACM Drivers
+              "mt76.ko"
+              "mt76-usb.ko"
+              "mt76x02-lib.ko"
+              "mt76x02-usb.ko"
+              "mt76x2-common.ko"
+              "mt76x2u.ko"
           )
 
           # 3. Find and copy them EXCLUSIVELY from the compiled Bazel output directory
