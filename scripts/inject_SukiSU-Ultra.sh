@@ -36,8 +36,7 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
 
     echo ">>> 3. Generating filtered SuSFS patch..."
     git checkout "${TARGET_BRANCH}"
-    git diff --diff-filter=AM "${TARGET_BRANCH}..builtin" -- kernel/ uapi/ \
-      ':!kernel/.clangd' \
+    git diff --diff-filter=AM "9fbe8fe..builtin" -- kernel/ uapi/ \      ':!kernel/.clangd' \
       ':!kernel/.clang-format' \
       ':!kernel/.gitignore' \
       ':!.gitignore' > susfs_port_clean.patch
@@ -98,6 +97,37 @@ if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "12" ]; then
     fi
 else
     echo "  -> Kernel $K_VER.$K_PATCH detected. Legacy LSM string hook is perfectly valid."
+fi
+
+# ---------------------------------------------------------
+# SukiSU-Ultra APK Signature Trap Bypass
+# ---------------------------------------------------------
+echo ">>> Checking for strict APK signature v2 whitelist trap..."
+APK_SIGN_FILE="${MANAGER_DIR}/kernel/manager/apk_sign.c"
+
+if [ -f "$APK_SIGN_FILE" ] && grep -q 'Unexpected signature block id' "$APK_SIGN_FILE"; then
+    echo "  -> Aggressive signature block rejection detected. Disarming..."
+    
+    python3 -c '
+import sys
+file_path = sys.argv[1]
+with open(file_path, "r") as f: lines = f.readlines()
+for i, line in enumerate(lines):
+    if "Unexpected signature block id" in line:
+        for j in range(1, 4):
+            if "goto invalid;" in lines[i+j]:
+                lines[i+j] = lines[i+j].replace(
+                    "goto invalid;", 
+                    "/* goto invalid; (Nuked for v3 signatures) */"
+                )
+                break
+        break
+with open(file_path, "w") as f: f.writelines(lines)
+' "$APK_SIGN_FILE"
+
+    echo "  -> apk_sign.c v3 signature trap successfully neutralized!"
+else
+    echo "  -> Signature trap not found in $APK_SIGN_FILE. Skipping."
 fi
 
 echo "  -> Target Tag: $CALCULATED_TAG"
