@@ -28,6 +28,7 @@ on:
         options:
           - KernelSU-Next
           - SukiSU-Ultra
+          - BakaSU
           - ReSukiSU
           - KernelSU
           - Stock
@@ -89,7 +90,7 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           preinstalled-runtimes: true
-          android: true
+          android: false
           dotnet: true
           haskell: false
           large-packages: false
@@ -199,6 +200,11 @@ jobs:
               ;;
             "SukiSU-Ultra")
               echo "UPSTREAM_REPO=SukiSU-Ultra/SukiSU-Ultra" >> $GITHUB_ENV
+              echo "TARGET_BRANCH=main" >> $GITHUB_ENV
+              echo "WORKFLOW_FILE=build-manager.yml" >> $GITHUB_ENV
+              ;;
+            "BakaSU")
+              echo "UPSTREAM_REPO=Baka-SU/BakaSU" >> $GITHUB_ENV
               echo "TARGET_BRANCH=main" >> $GITHUB_ENV
               echo "WORKFLOW_FILE=build-manager.yml" >> $GITHUB_ENV
               ;;
@@ -324,13 +330,12 @@ jobs:
           ENABLE_NETHUNTER: ${{ inputs.enable_nethunter }}
         run: |
           if [ "$ENABLE_NOMOUNT" = "true" ]; then
-            echo ">>> Fetching pinned nomount source..."
+            echo ">>> Fetching latest nomount source from master branch..."
             NOMOUNT_DIR="$(pwd)/tools/user_source/nomount/fs/nomount"
-            mkdir -p "$NOMOUNT_DIR"
-            NOMOUNT_COMMIT="74850fca15a6e12d2e9173c2f91a6d083d388a87"
-            echo "NOMOUNT_COMMIT=${NOMOUNT_COMMIT}" >> $GITHUB_ENV
-            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
-            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
+            
+            # Fetch directly from the master branch
+            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
+            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
           fi
 
           echo ">>> Injecting active user source files into common tree..."
@@ -571,31 +576,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo ">>> Fetching NoMount metamodule for pinned commit ${NOMOUNT_COMMIT}..."
+          echo ">>> Fetching latest stable NoMount release module..."
           mkdir -p nomount_extracted
           
-          # 1. Query GitHub API for the specific commit's action run
-          RUNS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/maxsteeel/nomount/actions/runs?head_sha=${NOMOUNT_COMMIT}&status=success")
+          # 1. Query GitHub API for the latest release
+          RELEASE_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/maxsteeel/nomount/releases/latest")
           
-          RUN_ID=$(echo "$RUNS_JSON" | jq -r '.workflow_runs[0].id // empty')
+          # 2. Extract the browser_download_url for the zip asset
+          DOWNLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n 1)
           
-          if [ -z "$RUN_ID" ]; then
-            echo "[-] Error: Could not find a successful Action run for commit $NOMOUNT_COMMIT."
-            exit 1
-          fi
-          
-          echo "  -> Found successful Run ID: $RUN_ID"
-          
-          # 2. Locate the specific NoMount artifact download URL
-          ARTIFACTS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/maxsteeel/nomount/actions/runs/${RUN_ID}/artifacts")
-          
-          DOWNLOAD_URL=$(echo "$ARTIFACTS_JSON" | jq -r '.artifacts[] | select(.name | startswith("NoMount-")) | .archive_download_url' | head -n 1)
-          
-          if [ -n "$DOWNLOAD_URL" ]; then
-            echo "  -> Downloading Artifact from: $DOWNLOAD_URL"
-            curl -sL -H "Authorization: token $GH_TOKEN" -o temp_module.zip "$DOWNLOAD_URL"
+          if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
+            echo "  -> Found latest release artifact. Downloading from: $DOWNLOAD_URL"
+            curl -sL -o temp_module.zip "$DOWNLOAD_URL"
             
             echo "  -> Extracting module..."
             unzip -q temp_module.zip -d nomount_extracted/
@@ -603,7 +596,7 @@ jobs:
             echo "  -> Success! Extracted contents:"
             ls -la nomount_extracted/
           else
-            echo "[-] Failed to find NoMount artifact zip in run $RUN_ID."
+            echo "[-] Failed to find a valid zip artifact in the latest release."
             exit 1
           fi
         shell: bash
