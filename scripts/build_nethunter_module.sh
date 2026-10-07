@@ -41,25 +41,16 @@ MODDIR=${0%/*}
 # Auto-load disabled. The Action button is in full control.
 EOF
 
-# 6. Generate action.sh (The Native MediaTek Cascade)
+# 6. Generate action.sh (The Honest MediaTek Cascade)
 cat << 'EOF' > "$MODULE_DIR/action.sh"
 #!/system/bin/sh
 MODDIR=${0%/*}
 
 if lsmod | grep -q "mt76x2u"; then
-    echo "NetHunter stack being de-activated..."
+    echo "De-activating ALFA drivers..."
     
-    # Dynamically find and drop external interfaces
-    ALFA_IFACE=$(iw dev | awk '$1=="Interface"{print $2}' | grep -v "wlan0\|aware")
-    if [ -n "$ALFA_IFACE" ]; then
-        ip link set "$ALFA_IFACE" down 2>/dev/null
-    else
-        ip link set wlan1 down 2>/dev/null
-        ip link set wlan2 down 2>/dev/null
-    fi
-    sleep 1
-    
-    # Gracefully unload the MediaTek stack
+    # The kernel automatically destroys the interface when the module unloads, 
+    # so we just cascade rmmod top-down.
     rmmod mt76x2u 2>/dev/null
     rmmod mt76x2_common 2>/dev/null
     rmmod mt76x02_usb 2>/dev/null
@@ -67,35 +58,35 @@ if lsmod | grep -q "mt76x2u"; then
     rmmod mt76_usb 2>/dev/null
     rmmod mt76 2>/dev/null
     
-    echo "[SUCCESS!] Interfaces dropped and ALFA drivers cleanly unloaded."
+    echo "[SUCCESS] Stack cleanly unloaded."
 else
-    echo "NetHunter stack being activated..."
-
-    # 1. INDEPENDENT HOOKS & SUBSYSTEMS
-    insmod "$MODDIR/rfkill.ko" 2>/dev/null
-
-    # 2. THE WIRELESS SPINE
-    insmod "$MODDIR/cfg80211.ko" 2>/dev/null
-    insmod "$MODDIR/mac80211.ko" 2>/dev/null
+    echo "Activating ALFA drivers..."
     
-    # 3. MEDIATEK ALFA ADAPTER
-    insmod "$MODDIR/mt76.ko" 2>/dev/null
-    insmod "$MODDIR/mt76-usb.ko" 2>/dev/null
-    insmod "$MODDIR/mt76x02-lib.ko" 2>/dev/null
-    insmod "$MODDIR/mt76x02-usb.ko" 2>/dev/null
-    insmod "$MODDIR/mt76x2-common.ko" 2>/dev/null
-    insmod "$MODDIR/mt76x2u.ko" 2>/dev/null
+    # Notice we removed 2>/dev/null. If the kernel rejects them, 
+    # KernelSU will now display the actual error on the screen.
+    insmod "$MODDIR/mt76.ko"
+    insmod "$MODDIR/mt76-usb.ko"
+    insmod "$MODDIR/mt76x02-lib.ko"
+    insmod "$MODDIR/mt76x02-usb.ko"
+    insmod "$MODDIR/mt76x2-common.ko"
+    insmod "$MODDIR/mt76x2u.ko"
 
     sleep 1
     
-    # Dynamically find the new interface and bring it up
-    ALFA_IFACE=$(iw dev | awk '$1=="Interface"{print $2}' | grep -v "wlan0\|aware")
-    if [ -n "$ALFA_IFACE" ]; then
-        ip link set "$ALFA_IFACE" up 2>/dev/null
-        echo "[SUCCESS!] Stack armed silently. ALFA online on $ALFA_IFACE."
+    # Actually verify the driver is in memory before celebrating
+    if lsmod | grep -q "mt76x2u"; then
+        # Filter out the known Pixel 9 internal interfaces
+        ALFA_IFACE=$(iw dev | awk '$1=="Interface"{print $2}' | grep -vE "wlan0|wlan1|aware|wonder")
+        
+        if [ -n "$ALFA_IFACE" ]; then
+            ip link set "$ALFA_IFACE" up
+            echo "[SUCCESS] Drivers injected. ALFA online on $ALFA_IFACE."
+        else
+            echo "[SUCCESS] Drivers injected, but waiting for USB hotplug..."
+            echo "Plug in the ALFA adapter now."
+        fi
     else
-        ip link set wlan1 up 2>/dev/null
-        echo "[SUCCESS!] Stack armed silently. ALFA online on wlan1."
+        echo "[ERROR] Kernel rejected the modules! Check dmesg."
     fi
 fi
 EOF

@@ -506,11 +506,6 @@ jobs:
 
           # 2. Define the target driver patterns
           MODULE_PATTERNS=(
-              # Core Subsystem Spines
-              "rfkill.ko"
-              "cfg80211.ko"
-              "mac80211.ko"
-              
               # MediaTek ALFA AWUS036ACM Drivers
               "mt76.ko"
               "mt76-usb.ko"
