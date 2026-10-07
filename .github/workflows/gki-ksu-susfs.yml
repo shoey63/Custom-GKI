@@ -84,7 +84,7 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           preinstalled-runtimes: true
-          android: true
+          android: false
           dotnet: true
           haskell: false
           large-packages: false
@@ -323,16 +323,12 @@ jobs:
           ENABLE_NOMOUNT: ${{ inputs.enable_nomount }}
         run: |
           if [ "$ENABLE_NOMOUNT" = "true" ]; then
-            echo ">>> Fetching pinned nomount source..."
+            echo ">>> Fetching latest nomount source from master branch..."
             NOMOUNT_DIR="$(pwd)/tools/user_source/fs/nomount"
-            NOMOUNT_COMMIT="c7f63e3feb4125d591b6969a33aac04feb40f8ba"
             
-            # Export to GITHUB_ENV so the Artifact fetcher can use it later
-            echo "NOMOUNT_COMMIT=${NOMOUNT_COMMIT}" >> $GITHUB_ENV
-            
-            # Force overwrite the existing .c and .h files with the pinned working versions
-            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
-            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/${NOMOUNT_COMMIT}/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
+            # Fetch directly from the master branch
+            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.c" -o "$NOMOUNT_DIR/nomount.c"
+            curl -sSL "https://raw.githubusercontent.com/maxsteeel/nomount/master/kernel/src/nomount.h" -o "$NOMOUNT_DIR/nomount.h"
           fi
 
           echo ">>> Injecting user source files into common tree..."
@@ -500,41 +496,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo ">>> Fetching NoMount metamodule for pinned commit ${NOMOUNT_COMMIT}..."
+          echo ">>> Fetching latest stable NoMount release module..."
           mkdir -p nomount_extracted
           
-          # 1. Query GitHub API for the specific commit's action run
-          RUNS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/maxsteeel/nomount/actions/runs?head_sha=${NOMOUNT_COMMIT}&status=success")
+          # 1. Query GitHub API for the latest release
+          RELEASE_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/maxsteeel/nomount/releases/latest")
           
-          RUN_ID=$(echo "$RUNS_JSON" | jq -r '.workflow_runs[0].id // empty')
+          # 2. Extract the browser_download_url for the zip asset
+          DOWNLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n 1)
           
-          if [ -z "$RUN_ID" ]; then
-            echo "[-] Exact commit match not found or failed upstream. Falling back to latest successful run..."
-            # Fallback: Query the most recent successful run globally across the repo
-            FALLBACK_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
-              "https://api.github.com/repos/maxsteeel/nomount/actions/runs?status=success&per_page=1")
-            
-            RUN_ID=$(echo "$FALLBACK_JSON" | jq -r '.workflow_runs[0].id // empty')
-            
-            if [ -z "$RUN_ID" ]; then
-               echo "[-] Error: Could not find ANY successful Action runs in the repository."
-               exit 1
-            fi
-            echo "  -> Found Fallback Run ID: $RUN_ID"
-          else
-            echo "  -> Found Exact Match Run ID: $RUN_ID"
-          fi
-          
-          # 2. Locate the specific NoMount artifact download URL
-          ARTIFACTS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/maxsteeel/nomount/actions/runs/${RUN_ID}/artifacts")
-          
-          DOWNLOAD_URL=$(echo "$ARTIFACTS_JSON" | jq -r '.artifacts[] | select(.name | startswith("NoMount-")) | .archive_download_url' | head -n 1)
-          
-          if [ -n "$DOWNLOAD_URL" ]; then
-            echo "  -> Downloading Artifact from: $DOWNLOAD_URL"
-            curl -sL -H "Authorization: token $GH_TOKEN" -o temp_module.zip "$DOWNLOAD_URL"
+          if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
+            echo "  -> Found latest release artifact. Downloading from: $DOWNLOAD_URL"
+            curl -sL -o temp_module.zip "$DOWNLOAD_URL"
             
             echo "  -> Extracting module..."
             unzip -q temp_module.zip -d nomount_extracted/
@@ -542,7 +516,7 @@ jobs:
             echo "  -> Success! Extracted contents:"
             ls -la nomount_extracted/
           else
-            echo "[-] Failed to find NoMount artifact zip in run $RUN_ID."
+            echo "[-] Failed to find a valid zip artifact in the latest release."
             exit 1
           fi
         shell: bash
