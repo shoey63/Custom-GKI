@@ -51,3 +51,16 @@ index 52d92225a..176a4189a 100644
  ]
  
  # Deprecated - Use `get_gki_modules_list` function instead.
+diff --git a/drivers/net/wireless/mediatek/mt76/Kconfig b/drivers/net/wireless/mediatek/mt76/Kconfig
+index 9ff43f1fc..c52b6ab15 100644
+--- a/drivers/net/wireless/mediatek/mt76/Kconfig
++++ b/drivers/net/wireless/mediatek/mt76/Kconfig
+@@ -6,7 +6,7 @@ config MT76_LEDS
+ 	bool
+ 	depends on MT76_CORE
+ 	depends on LEDS_CLASS=y || MT76_CORE=LEDS_CLASS
+-	default y
++	default n
+ 
+ config MT76_USB
+ 	tristate
