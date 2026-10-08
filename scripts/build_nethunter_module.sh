@@ -1,60 +1,43 @@
 #!/bin/bash
-# scripts/build_nethunter_module.sh
-# Usage: ./build_nethunter_module.sh <path_to_ko_files> <device_name>
-
 KO_DIR=$1
 DEVICE_NAME=${2:-"Generic"}
 MODULE_DIR="ksu_nethunter_module"
-ZIP_NAME="${DEVICE_NAME}-NetHunter-Module.zip"
 
 echo ">>> Constructing Minimalist NetHunter KernelSU Module for $DEVICE_NAME..."
+rm -rf "$MODULE_DIR"
+mkdir -p "$MODULE_DIR/system/vendor/firmware/mediatek"
 
-# 1. Clean and prepare module directory
-rm -rf "$MODULE_DIR" "$ZIP_NAME"
-mkdir -p "$MODULE_DIR"
-
-# 2. Copy compiled drivers directly into the module root
-echo "  -> Injecting compiled drivers..."
 cp "$KO_DIR"/*.ko "$MODULE_DIR/" 2>/dev/null || true
+wget -q -O "$MODULE_DIR/system/vendor/firmware/mediatek/mt7662u_rom_patch.bin" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7662u_rom_patch.bin"
+wget -q -O "$MODULE_DIR/system/vendor/firmware/mediatek/mt7662u.bin" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7662u.bin"
 
-# 3. Fetch and inject MediaTek firmware for systemless overlay
-echo "  -> Fetching MediaTek MT7612U firmware blobs..."
-FW_DIR="$MODULE_DIR/system/vendor/firmware/mediatek"
-mkdir -p "$FW_DIR"
-wget -q -O "$FW_DIR/mt7662u_rom_patch.bin" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7662u_rom_patch.bin"
-wget -q -O "$FW_DIR/mt7662u.bin" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7662u.bin"
-
-# 4. Generate module.prop
-cat << EOF > "$MODULE_DIR/module.prop"
+cat << INNER_EOF > "$MODULE_DIR/module.prop"
 id=nethunter-drivers-${DEVICE_NAME,,}
 name=NetHunter Surgical Wireless Drivers ($DEVICE_NAME)
 version=v3.0-mediatek
 versionCode=4
 author=Shoey
-description=Minimalist systemless NetHunter drivers (MediaTek MT7612U ALFA AWUS036ACM) with Action Button control and firmware injection.
-EOF
+description=Minimalist systemless NetHunter drivers (MediaTek MT7612U ALFA AWUS036ACM)
+INNER_EOF
 
-# 5. Generate service.sh (Disabled autoload)
-cat << 'EOF' > "$MODULE_DIR/service.sh"
+cat << 'INNER_EOF' > "$MODULE_DIR/service.sh"
 #!/system/bin/sh
 MODDIR=${0%/*}
-# Auto-load disabled. The Action button is in full control.
-EOF
+INNER_EOF
 
-# 6. Generate action.sh
 echo "Generating action.sh..."
-cat << 'EOF' > "$MODULE_DIR/action.sh"
+cat << 'INNER_EOF' > "$MODULE_DIR/action.sh"
 #!/system/bin/sh
 MODDIR=${0%/*}
 
-# If the stack is NOT loaded (e.g., after a fresh reboot)
 if ! lsmod | grep -q "mt76x2u"; then
     echo "Activating ALFA drivers..."
+    # insmod REQUIRES actual filenames on disk (hyphens)
     insmod "$MODDIR/mt76.ko"
-    insmod "$MODDIR/mt76_usb.ko"
-    insmod "$MODDIR/mt76x02_lib.ko"
-    insmod "$MODDIR/mt76x02_usb.ko"
-    insmod "$MODDIR/mt76x2_common.ko"
+    insmod "$MODDIR/mt76-usb.ko"
+    insmod "$MODDIR/mt76x02-lib.ko"
+    insmod "$MODDIR/mt76x02-usb.ko"
+    insmod "$MODDIR/mt76x2-common.ko"
     insmod "$MODDIR/mt76x2u.ko"
     
     if lsmod | grep -q "mt76x2u"; then
@@ -63,8 +46,8 @@ if ! lsmod | grep -q "mt76x2u"; then
         echo "[ERROR] Kernel rejected the modules! Check dmesg."
     fi
 else
-    # If the stack is already loaded, toggle it off
     echo "Deactivating ALFA drivers..."
+    # rmmod REQUIRES module names in memory (underscores)
     rmmod mt76x2u
     rmmod mt76x2_common
     rmmod mt76x02_usb
@@ -73,21 +56,15 @@ else
     rmmod mt76
     echo "[SUCCESS] Drivers unloaded."
 fi
-EOF
+INNER_EOF
 
-# 7. Generate customize.sh
-cat << EOF > "$MODULE_DIR/customize.sh"
+cat << INNER_EOF > "$MODULE_DIR/customize.sh"
 #!/system/bin/sh
 ui_print "- Installing Surgical NetHunter Driver Stack..."
 ui_print "- Device: $DEVICE_NAME"
-ui_print "- Hardware: MediaTek MT7612U (AWUS036ACM)"
-ui_print "- Setting permissions..."
 set_perm_recursive "\$MODPATH" 0 0 0755 0644
 set_perm "\$MODPATH/action.sh" 0 0 0755
 set_perm "\$MODPATH/service.sh" 0 0 0755
-ui_print "- Ready for OTG injection."
-EOF
+INNER_EOF
 
 chmod +x "$MODULE_DIR"/*.sh
-
-echo ">>> Surgical NetHunter Module directory ready for GitHub upload!"
