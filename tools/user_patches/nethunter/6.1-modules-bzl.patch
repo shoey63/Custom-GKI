@@ -1,0 +1,31 @@
+diff --git a/modules.bzl b/modules.bzl
+index 52d92225a..176a4189a 100644
+--- a/modules.bzl
++++ b/modules.bzl
+@@ -34,6 +34,12 @@ _COMMON_GKI_MODULES_LIST = [
+     "drivers/net/usb/r8153_ecm.ko",
+     "drivers/net/usb/rtl8150.ko",
+     "drivers/net/usb/usbnet.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76-usb.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x02-lib.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x02-usb.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x2/mt76x2-common.ko",
++    "drivers/net/wireless/mediatek/mt76/mt76x2/mt76x2u.ko",
+     "drivers/net/wwan/wwan.ko",
+     "drivers/usb/class/cdc-acm.ko",
+     "drivers/usb/serial/ftdi_sio.ko",
+@@ -62,11 +68,13 @@ _COMMON_GKI_MODULES_LIST = [
+     "net/ieee802154/ieee802154_socket.ko",
+     "net/l2tp/l2tp_core.ko",
+     "net/l2tp/l2tp_ppp.ko",
++    "net/mac80211/mac80211.ko",
+     "net/mac802154/mac802154.ko",
+     "net/nfc/nfc.ko",
+     "net/rfkill/rfkill.ko",
+     "net/tipc/diag.ko",
+     "net/tipc/tipc.ko",
++    "net/wireless/cfg80211.ko",
+ ]
+ 
+ # Deprecated - Use `get_gki_modules_list` function instead.

@@ -41,53 +41,37 @@ MODDIR=${0%/*}
 # Auto-load disabled. The Action button is in full control.
 EOF
 
-# 6. Generate action.sh (The Honest MediaTek Cascade)
+# 6. Generate action.sh
+echo "Generating action.sh..."
 cat << 'EOF' > "$MODULE_DIR/action.sh"
 #!/system/bin/sh
 MODDIR=${0%/*}
 
-if lsmod | grep -q "mt76x2u"; then
-    echo "De-activating ALFA drivers..."
-    
-    # The kernel automatically destroys the interface when the module unloads, 
-    # so we just cascade rmmod top-down.
-    rmmod mt76x2u 2>/dev/null
-    rmmod mt76x2_common 2>/dev/null
-    rmmod mt76x02_usb 2>/dev/null
-    rmmod mt76x02_lib 2>/dev/null
-    rmmod mt76_usb 2>/dev/null
-    rmmod mt76 2>/dev/null
-    
-    echo "[SUCCESS] Stack cleanly unloaded."
-else
+# If the stack is NOT loaded (e.g., after a fresh reboot)
+if ! lsmod | grep -q "mt76x2u"; then
     echo "Activating ALFA drivers..."
-    
-    # Notice we removed 2>/dev/null. If the kernel rejects them, 
-    # KernelSU will now display the actual error on the screen.
     insmod "$MODDIR/mt76.ko"
-    insmod "$MODDIR/mt76-usb.ko"
-    insmod "$MODDIR/mt76x02-lib.ko"
-    insmod "$MODDIR/mt76x02-usb.ko"
-    insmod "$MODDIR/mt76x2-common.ko"
+    insmod "$MODDIR/mt76_usb.ko"
+    insmod "$MODDIR/mt76x02_lib.ko"
+    insmod "$MODDIR/mt76x02_usb.ko"
+    insmod "$MODDIR/mt76x2_common.ko"
     insmod "$MODDIR/mt76x2u.ko"
-
-    sleep 1
     
-    # Actually verify the driver is in memory before celebrating
     if lsmod | grep -q "mt76x2u"; then
-        # Filter out the known Pixel 9 internal interfaces
-        ALFA_IFACE=$(iw dev | awk '$1=="Interface"{print $2}' | grep -vE "wlan0|wlan1|aware|wonder")
-        
-        if [ -n "$ALFA_IFACE" ]; then
-            ip link set "$ALFA_IFACE" up
-            echo "[SUCCESS] Drivers injected. ALFA online on $ALFA_IFACE."
-        else
-            echo "[SUCCESS] Drivers injected, but waiting for USB hotplug..."
-            echo "Plug in the ALFA adapter now."
-        fi
+        echo "[SUCCESS] Drivers injected."
     else
         echo "[ERROR] Kernel rejected the modules! Check dmesg."
     fi
+else
+    # If the stack is already loaded, toggle it off
+    echo "Deactivating ALFA drivers..."
+    rmmod mt76x2u
+    rmmod mt76x2_common
+    rmmod mt76x02_usb
+    rmmod mt76x02_lib
+    rmmod mt76_usb
+    rmmod mt76
+    echo "[SUCCESS] Drivers unloaded."
 fi
 EOF
 
