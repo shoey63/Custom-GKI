@@ -3,11 +3,21 @@
 
 echo ">>> Executing Integration Module for SukiSU-Ultra..."
 
+# Define the target commit hash here to bisect upstream cherry-pick breakages.
+# Leave empty ("") to always build the bleeding-edge main branch.
+SUKISU_COMMIT=""
+
 if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     echo ">>> 1. Cloning pristine official SukiSU-Ultra upstream..."
     git clone -b "${TARGET_BRANCH}" "https://github.com/${UPSTREAM_REPO}.git" "${MANAGER_DIR}"
     
     cd "${MANAGER_DIR}"
+    
+    # 1a. Optional: Pin to a specific older commit for debugging/bisecting
+    if [ -n "$SUKISU_COMMIT" ]; then
+        echo ">>> 1a. Pinning SukiSU-Ultra to older commit: $SUKISU_COMMIT..."
+        git reset --hard "$SUKISU_COMMIT"
+    fi
     
     # Capture the pristine upstream hash for the Gatekeeper BEFORE we apply the SuSFS hooks
     UPSTREAM_HASH=$(git log -n 1 --format="%H" -i --grep="ci skip" --grep="skip ci" --grep="clippy" --invert-grep -- manager/ kernel/ userspace/ .github/workflows/ ":!*Cargo.lock" ":!*Cargo.toml")
