@@ -18,10 +18,24 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}")
     UPSTREAM_BRANCH="main"
 
-    echo ">>> 2. Fetching preconditioned 'builtin' branch from custom fork..."
-    git fetch https://github.com/shoey63/SukiSU-Ultra.git builtin:builtin
+    echo ">>> 2. Fetching 'builtin' branch for SuSFS code transplant..."
+    git fetch origin builtin:builtin
+    git checkout builtin
+
+    rm -rf uapi
+    mv kernel/include/uapi uapi 2>/dev/null || true
+    cd kernel/include
+    ln -s ../../uapi uapi
+    cd ../..
+    mv kernel/Makefile kernel/Kbuild 2>/dev/null || true
+
+    git add uapi kernel/
+    git config --global user.email "runner@github.actions"
+    git config --global user.name "GitHub Actions Canary"
+    git commit -m "chore: CI structural fixes (symlinks and Kbuild)"
 
     echo ">>> 3. Generating filtered SuSFS patch..."
+    git checkout main
     git diff --diff-filter=AM main..builtin -- kernel/ uapi/ \
       ':!kernel/.clangd' \
       ':!kernel/.clang-format' \
