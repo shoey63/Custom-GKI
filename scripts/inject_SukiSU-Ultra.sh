@@ -3,12 +3,21 @@
 
 echo ">>> Executing Integration Module for SukiSU-Ultra..."
 
-# Override channel routing so both 'stable' and 'dynamic' runs pull the custom
-# SuSFS pt_regs commits from the shoey63 fork (while leaving 'main' untouched).
+# Override channel routing so all custom runs pull the SuSFS pt_regs commits 
+# from the shoey63 fork (while leaving 'main' untouched).
 if [ "${BUILD_CHANNEL}" != "main" ]; then
-    echo ">>> [OVERRIDE] Routing SukiSU-Ultra base clone to shoey63/SukiSU-Ultra (stable)..."
+    
     KSU_VARIANT_REPO_URL="https://github.com/shoey63/SukiSU-Ultra.git"
-    KSU_VARIANT_REF="stable"
+    
+    # If dynamic is selected, use stable as the foundation. 
+    # Otherwise, use exactly what was selected in the menu (e.g., rebase, testing).
+    if [ "${BUILD_CHANNEL}" == "dynamic" ]; then
+        KSU_VARIANT_REF="stable"
+    else
+        KSU_VARIANT_REF="${BUILD_CHANNEL}"
+    fi
+
+    echo ">>> [OVERRIDE] Routing SukiSU-Ultra base clone to shoey63/SukiSU-Ultra (${KSU_VARIANT_REF})..."
 fi
 
 echo ">>> 1. Cloning target branch (${KSU_VARIANT_REF}) from ${KSU_VARIANT_REPO_URL}..."
