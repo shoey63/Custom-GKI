@@ -56,7 +56,17 @@ else
     UPSTREAM_BRANCH="${KSU_VARIANT_REF}"
 fi
 
-# 4. Calculate the official upstream sync point for version count and Manager APK matching
+
+echo ">>> Injecting KPM Compiler Overrides for SukiSU-Ultra..."
+cat << 'EOF' >> kernel/Kbuild
+
+# 4.--- Force KPM (Kernel Patch Module) ---
+ccflags-y += -DCONFIG_KPM=1
+ccflags-y += -DCONFIG_KALLSYMS=1
+ccflags-y += -DCONFIG_KALLSYMS_ALL=1
+EOF
+
+# 5. Calculate the official upstream sync point for version count and Manager APK matching
 RAW_BASE=$(git merge-base HEAD FETCH_HEAD)
 
 set +o pipefail
