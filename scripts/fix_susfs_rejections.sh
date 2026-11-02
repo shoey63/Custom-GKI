@@ -53,6 +53,17 @@ if [ "${ROOT_MANAGER:-}" = "SukiSU-Ultra" ]; then
     fi
 fi
 
+# 1.6 Neuter unused function errors in fs/susfs.c
+if [[ "$ROOT_MANAGER" == "SukiSU-Ultra" || "$ROOT_MANAGER" == "BakaSU" ]]; then
+    echo ">>> [HOTFIX] Neutering unused function errors in fs/susfs.c for $ROOT_MANAGER..."
+    
+    # Inject __maybe_unused into the switch_to_ksu_domain function signature
+    sed -i 's/static struct cred \*susfs_switch_to_ksu_domain/static struct cred __maybe_unused \*susfs_switch_to_ksu_domain/g' common/fs/susfs.c
+    
+    # Inject __maybe_unused into the restore_creds function signature
+    sed -i 's/static void susfs_restore_creds/static void __maybe_unused susfs_restore_creds/g' common/fs/susfs.c
+fi
+
 # 2. Kernel 6.6+: Fix mm/rmap.c Redundant SuSFS Backport
 if [ -f "common/mm/rmap.c.rej" ]; then
     echo ">>> Found rmap.c.rej. Analyzing kernel version compatibility..."
