@@ -50,7 +50,7 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     sed -i '2i void susfs_parse_priority_app_strings(void) {}' kernel/manager/pkg_observer.c 2>/dev/null || true
     sed -i '1i #include <linux/susfs.h>' kernel/supercall/dispatch.c 2>/dev/null || true
     sed -i '2i void susfs_set_priority_uid_filter(void *arg) {}' kernel/supercall/dispatch.c 2>/dev/null || true
-    sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/(void)ksu_hooks;/g' kernel/hook/lsm_hook.c 2>/dev/null || true
+    #sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/(void)ksu_hooks;/g' kernel/hook/lsm_hook.c 2>/dev/null || true
     sed -i '/config KPM/,/help/ s/default n/default y/' kernel/Kconfig 2>/dev/null || true
     sed -i '/select KALLSYMS/d' kernel/Kconfig 2>/dev/null || true
     
