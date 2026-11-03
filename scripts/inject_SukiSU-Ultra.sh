@@ -41,9 +41,13 @@ if [ "${SKIP_REBASE_STAMP}" == "true" ]; then
     sed -i '2i void susfs_parse_priority_app_strings(void) {}' kernel/manager/pkg_observer.c 2>/dev/null || true
     sed -i '1i #include <linux/susfs.h>' kernel/supercall/dispatch.c 2>/dev/null || true
     sed -i '2i void susfs_set_priority_uid_filter(void *arg) {}' kernel/supercall/dispatch.c 2>/dev/null || true
-      
-      # 2. Bypass Android 16 LSM Panic and satisfy unused-variable compiler rules
+    
+    # 2. Bypass Android 16 LSM Panic and satisfy unused-variable compiler rules
     sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/(void)ksu_hooks;/g' kernel/hook/lsm_hook.c 2>/dev/null || true
+    
+    # 3. Enable kpm
+    sed -i '/config KPM/,/help/ s/default n/default y/' kernel/Kconfig
+    sed -i '/select KALLSYMS/d' kernel/Kconfig
 
 elif [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     echo ">>> 3. Dynamic mode active: Rebasing clone onto YAML-provided Upstream Hash (${UPSTREAM_HASH:0:7})..."

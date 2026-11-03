@@ -440,7 +440,7 @@ jobs:
           bash ./scripts/build_kernel.sh
   
       - name: Inject KernelPatch (KPM) Engine
-        if: inputs.root_manager == 'SukiSU-Ultra' && env.BASE_VER != '6.12'
+        if: inputs.root_manager == 'SukiSU-Ultra'
         run: |
           echo ">>> Fetching latest SukiSU-Ultra APK to extract kpimg core..."
           SUKI_API="https://api.github.com/repos/SukiSU-Ultra/SukiSU-Ultra/releases/latest"
