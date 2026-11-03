@@ -7,9 +7,9 @@ echo ">>> Executing Integration Module for SukiSU-Ultra..."
 # SuSFS pt_regs commits from the shoey63 fork (while leaving 'main' untouched).
 if [ "${BUILD_CHANNEL}" != "main" ]; then
     if [ "${BASE_VER}" = "6.12" ]; then
-        echo ">>> [OVERRIDE] Kernel 6.12 detected. Routing to pure builtin-new branch..."
+        echo ">>> [OVERRIDE] Kernel 6.12 detected. Routing to pure builtin branch..."
         KSU_VARIANT_REPO_URL="https://github.com/SukiSU-Ultra/SukiSU-Ultra.git"
-        KSU_VARIANT_REF="builtin-new"
+        KSU_VARIANT_REF="builtin"
         SKIP_REBASE_STAMP="true"
     else
         echo ">>> [OVERRIDE] Legacy kernel detected. Routing to hardened pt_regs branch (stable)..."
@@ -41,9 +41,9 @@ if [ "${SKIP_REBASE_STAMP}" == "true" ]; then
     sed -i '2i void susfs_parse_priority_app_strings(void) {}' kernel/manager/pkg_observer.c 2>/dev/null || true
     sed -i '1i #include <linux/susfs.h>' kernel/supercall/dispatch.c 2>/dev/null || true
     sed -i '2i void susfs_set_priority_uid_filter(void *arg) {}' kernel/supercall/dispatch.c 2>/dev/null || true
-
-    # 2. Fix 6.12 LSM API change
-    sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)\n\tstatic const struct lsm_id ksu_lsmid = { .name = "ksu", .id = 0 };\n\tsecurity_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), \&ksu_lsmid);\n#else\n\tsecurity_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");\n#endif/g' kernel/hook/lsm_hook.c 2>/dev/null || true
+      
+      # 2. Bypass Android 16 LSM Panic and satisfy unused-variable compiler rules
+    sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/(void)ksu_hooks;/g' kernel/hook/lsm_hook.c 2>/dev/null || true
 
 elif [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     echo ">>> 3. Dynamic mode active: Rebasing clone onto YAML-provided Upstream Hash (${UPSTREAM_HASH:0:7})..."
