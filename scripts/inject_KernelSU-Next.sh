@@ -51,16 +51,58 @@ else
     UPSTREAM_BRANCH="${KSU_VARIANT_REF}"
 fi
 
-echo ">>> Applying universal hotfixes (masked by assume-unchanged)..."
-# Fix missing batch SID update on policy reload
-sed -i '/#else/{N;s/#else\n    reset_avc_cache(0);/#else\n    reset_avc_cache(0);\n    susfs_set_batch_sid();/2}' kernel/selinux/rules.c
-# Fix MLS L2H2 constraint corruption
-sed -i '/case CEXPR_L2H2:/{n;s/scontext->range.level\[0\]/tcontext->range.level[0]/;}' kernel/feature/selinux_hide.c
-# Prevent unsafe LTO function pointer resolution
-sed -i 's/security_dump_masked_av_fn = find_kernel_symbol_exact/\/\/ security_dump_masked_av_fn = find_kernel_symbol_exact/g' kernel/feature/selinux_hide.c
-sed -i 's/context_struct_compute_av_fn = find_kernel_symbol_exact/\/\/ context_struct_compute_av_fn = find_kernel_symbol_exact/g' kernel/feature/selinux_hide.c
-# Disable synchronous background throne tracker during first boot
-sed -i '/config KSU_THRONE_TRACKER_ALWAYS_THREADED/,/help/ s/default y/default n/' kernel/Kconfig
+echo ">>> Auditing and applying universal SELinux & SuSFS hotfixes (masked by assume-unchanged)..."
+
+# Fix #1: Missing susfs_set_batch_sid() in handle_sepolicy() (rules.c)
+if [ -f "kernel/selinux/rules.c" ] && [ "$(grep -c 'susfs_set_batch_sid();' kernel/selinux/rules.c)" -lt 2 ] && grep -q 'reset_avc_cache(0);' kernel/selinux/rules.c; then
+    sed -i '/#else/{N;s/#else\n    reset_avc_cache(0);/#else\n    reset_avc_cache(0);\n    susfs_set_batch_sid();/2}' kernel/selinux/rules.c
+    echo "  [+] APPLIED Fix #1: Injected missing susfs_set_batch_sid() into handle_sepolicy() (rules.c)."
+else
+    echo "  [i] SKIPPED Fix #1: susfs_set_batch_sid() already present in both policy handlers (or rules.c refactored)."
+fi
+
+# Fix #2: MLS CEXPR_L2H2 constraint typo (scontext -> tcontext in selinux_hide.c)
+if [ -f "kernel/feature/selinux_hide.c" ] && grep -A 1 "case CEXPR_L2H2:" kernel/feature/selinux_hide.c | grep -q "scontext->range.level\[0\]"; then
+    sed -i '/case CEXPR_L2H2:/{n;s/scontext->range.level\[0\]/tcontext->range.level[0]/;}' kernel/feature/selinux_hide.c
+    echo "  [+] APPLIED Fix #2: Corrected CEXPR_L2H2 MLS range check from scontext to tcontext (selinux_hide.c)."
+else
+    echo "  [i] SKIPPED Fix #2: CEXPR_L2H2 scontext bug not found in selinux_hide.c (already fixed upstream)."
+fi
+
+# Fix #3a: Unsafe LTO function pointer lookup for security_dump_masked_av
+if [ -f "kernel/feature/selinux_hide.c" ] && grep -q "^[[:space:]]*security_dump_masked_av_fn = find_kernel_symbol_exact" kernel/feature/selinux_hide.c; then
+    sed -i 's/^\([[:space:]]*\)security_dump_masked_av_fn = find_kernel_symbol_exact/\1\/\/ security_dump_masked_av_fn = find_kernel_symbol_exact/g' kernel/feature/selinux_hide.c
+    echo "  [+] APPLIED Fix #3a: Disabled dynamic symbol lookup for security_dump_masked_av_fn (selinux_hide.c)."
+else
+    echo "  [i] SKIPPED Fix #3a: security_dump_masked_av_fn lookup not active (already disabled or fixed)."
+fi
+
+# Fix #3b: Unsafe LTO function pointer lookup for context_struct_compute_av
+if [ -f "kernel/feature/selinux_hide.c" ] && grep -q "^[[:space:]]*context_struct_compute_av_fn = find_kernel_symbol_exact" kernel/feature/selinux_hide.c; then
+    sed -i 's/^\([[:space:]]*\)context_struct_compute_av_fn = find_kernel_symbol_exact/\1\/\/ context_struct_compute_av_fn = find_kernel_symbol_exact/g' kernel/feature/selinux_hide.c
+    echo "  [+] APPLIED Fix #3b: Disabled dynamic symbol lookup for context_struct_compute_av_fn (selinux_hide.c)."
+else
+    echo "  [i] SKIPPED Fix #3b: context_struct_compute_av_fn lookup not active (already disabled or fixed)."
+fi
+
+# Fix #4a: Strip custom CMD_SUSFS_SET_SUS_PATH_UID_FILTER case from dispatch.c
+if [ -f "kernel/supercall/dispatch.c" ] && grep -q "CMD_SUSFS_SET_SUS_PATH_UID_FILTER" kernel/supercall/dispatch.c; then
+    sed -i '/case CMD_SUSFS_SET_SUS_PATH_UID_FILTER:/,+2d' kernel/supercall/dispatch.c
+    echo "  [+] APPLIED Fix #4a: Removed unsupported CMD_SUSFS_SET_SUS_PATH_UID_FILTER case from dispatch.c."
+else
+    echo "  [i] SKIPPED Fix #4a: CMD_SUSFS_SET_SUS_PATH_UID_FILTER not present in dispatch.c."
+fi
+
+# Fix #4b: Strip custom susfs_parse_sus_path_app_strings() from pkg_observer.c
+if [ -f "kernel/manager/pkg_observer.c" ] && grep -q "susfs_parse_sus_path_app_strings" kernel/manager/pkg_observer.c; then
+    sed -i '/susfs_parse_sus_path_app_strings();/d' kernel/manager/pkg_observer.c
+    echo "  [+] APPLIED Fix #4b: Removed unsupported susfs_parse_sus_path_app_strings() from pkg_observer.c."
+else
+    echo "  [i] SKIPPED Fix #4b: susfs_parse_sus_path_app_strings() not present in pkg_observer.c."
+fi
+
+git add .
+git commit -am "Hotfixes applied"
 
 # Calculate the official counts EXACTLY from the rock-solid hash
 CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}" 2>/dev/null || echo "11950")
