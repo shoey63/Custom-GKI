@@ -484,12 +484,32 @@ jobs:
   
       - name: Inject KernelPatch (KPM) Engine
         if: inputs.root_manager == 'SukiSU-Ultra'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ">>> Fetching latest SukiSU-Ultra APK to extract kpimg core..."
           SUKI_API="https://api.github.com/repos/SukiSU-Ultra/SukiSU-Ultra/releases/latest"
-          APK_URL=$(curl -s "$SUKI_API" | grep "browser_download_url.*\.apk" | cut -d '"' -f 4 | head -n 1)
+          
+          # 1. Try authenticated API request first to avoid rate limits
+          APK_URL=$(curl -s -H "Authorization: token $GH_TOKEN" "$SUKI_API" | jq -r '.assets[]? | select(.name | endswith(".apk")) | .browser_download_url' | head -n 1)
+          
+          # 2. Fallback to HTML scraping if API fails or returns null
+          if [ -z "$APK_URL" ] || [ "$APK_URL" = "null" ]; then
+              echo "[-] API request failed. Falling back to HTML scraping..."
+              APK_URL=$(curl -s "https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/latest" | grep -oE 'href="/SukiSU-Ultra/SukiSU-Ultra/releases/download/[^/]+/[^"]+\.apk"' | head -n 1 | sed 's/^href="//;s/"$//')
+              [ -n "$APK_URL" ] && APK_URL="https://github.com$APK_URL"
+          fi
+          
+          if [ -z "$APK_URL" ] || [ "$APK_URL" = "null" ]; then
+              echo "[-] FATAL: Could not resolve SukiSU-Ultra APK download URL."
+              exit 1
+          fi
+          
+          echo "  -> Downloading APK from: $APK_URL"
           wget -qO manager.apk "$APK_URL"
-          unzip -j manager.apk "assets/kpm/kpimg"
+          
+          echo "  -> Extracting kpimg..."
+          unzip -j manager.apk "assets/kpm/kpimg" || { echo "[-] FATAL: Failed to extract kpimg from APK"; exit 1; }
           
           echo ">>> Compiling Linux patcher tool from ShirkNeko source..."
           git clone --depth 1 https://github.com/ShirkNeko/SukiSU_KernelPatch_patch.git kp_src
@@ -505,7 +525,7 @@ jobs:
           mv out/Image-patched out/Image
           
           echo ">>> KPM Engine successfully injected into CI pipeline!"
-          
+
       - name: Pull stock boot.img from OTA
         if: env.REPACK_ENABLED == 'true'
         run: |

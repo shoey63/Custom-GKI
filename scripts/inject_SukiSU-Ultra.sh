@@ -31,6 +31,8 @@ if [ "${USE_DYNAMIC_TRANSPLANT}" == "true" ]; then
     echo ">>> 5. Transplanting built-in SuSFS kernel/ tree onto pristine main anchor..."
     git rm -rf --quiet kernel/
     git checkout FETCH_HEAD -- kernel/
+    
+    mv kernel/Makefile kernel/Kbuild 2>/dev/null || true
 
     git add kernel/
     git commit -m "chore: transplant built-in SuSFS kernel tree from upstream/builtin"
@@ -47,21 +49,12 @@ else
     UPSTREAM_BRANCH="${KSU_VARIANT_REF}"
 fi
 
-# 6. Calculate the official counts EXACTLY from the rock-solid hash
-CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}" 2>/dev/null || echo "11950")
-CALCULATED_TAG=$(git describe --tags --abbrev=0 "${UPSTREAM_HASH}" 2>/dev/null || echo "v0.0.0")
-
+echo ">>> Applying KPM overrides..."
+sed -i '/config KPM/,/help/ s/default n/default y/' kernel/Kconfig 2>/dev/null || true
+sed -i '/select KALLSYMS/d' kernel/Kconfig 2>/dev/null || true
+    
 echo ">>> Auditing and applying universal SukiSU-Ultra hotfixes..."
 
-# Fix #1: Lock kernel/Makefile version & SHA macros to exact UPSTREAM_HASH for offline Kleaf sandbox
-if [ -f "kernel/Makefile" ] && grep -q 'rev-list --count $(REPO_BRANCH)' kernel/Makefile; then
-    sed -i "s/rev-list --count \$(REPO_BRANCH)/rev-list --count ${UPSTREAM_HASH}/g" kernel/Makefile
-    sed -i "s/rev-parse --short=8 HEAD/rev-parse --short=8 ${UPSTREAM_HASH}/g" kernel/Makefile
-    sed -i 's/LOCAL_COUNT     := $(if $(GITHUB_COMMITS),$(GITHUB_COMMITS),$(git_commit_count))/LOCAL_COUNT     := $(git_commit_count)/g' kernel/Makefile
-    echo "  [+] APPLIED Fix #1: Locked kernel/Makefile version calculation to anchor ${UPSTREAM_HASH:0:7}."
-else
-    echo "  [i] SKIPPED Fix #1: kernel/Makefile version calculation already locked or not present."
-fi
 
 # Fix #2: Safety check for MLS CEXPR_L2H2 constraint typo (scontext -> tcontext in selinux_hide.c)
 if [ -f "kernel/feature/selinux_hide.c" ] && grep -A 1 "case CEXPR_L2H2:" kernel/feature/selinux_hide.c | grep -q "scontext->range.level\[0\]"; then
@@ -71,35 +64,37 @@ else
     echo "  [i] SKIPPED Fix #2: CEXPR_L2H2 scontext bug not found in selinux_hide.c."
 fi
 
-# Fix #3: SukiSU-Ultra LSM Hook API Fix for Linux 6.12+ (sed version)
+# Fix #3: Version-aware LSM Hook compatibility using BASE_VER (${BASE_VER})
 echo ">>> Auditing LSM hook compatibility for BASE_VER: ${BASE_VER}..."
-if [ "${BASE_VER}" = "6.12" ]; then
-    LSM_HOOK_FILE="kernel/hook/lsm_hook.c"
+LSM_HOOK_FILE="kernel/hook/lsm_hook.c"
 
-    if [ -f "$LSM_HOOK_FILE" ] && grep -q 'security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");' "$LSM_HOOK_FILE"; then
-        echo "  -> Linux 6.12 branch detected. Patching security_add_hooks using sed..."
+if [ -f "$LSM_HOOK_FILE" ] && grep -q 'security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");' "$LSM_HOOK_FILE"; then
+    if [ "${BASE_VER}" = "6.12" ]; then
+        echo "  -> BASE_VER is 6.12. Bypassing security_add_hooks() to prevent 'Too many LSMs registered' panic..."
         
-        # 1. Replace the string literal pointer "ksu" with the address of our struct lsm_id
-        sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), \&ksu_lsmid);/g' "$LSM_HOOK_FILE"
-
-        # 2. Inject the static struct lsm_id definition right above the ks_lsm_hook_init function call
-        sed -i '/void __init ksu_lsm_hook_init(void)/ {
-            n
-            a\    static const struct lsm_id ksu_lsmid = {\n        .name = "ksu",\n        .id = 0,\n    };
-        }' "$LSM_HOOK_FILE"
-
-        echo "  [+] Successfully patched lsm_hook.c via sed."
+        # 1. Mark ksu_hooks[] as __maybe_unused so Clang -Werror doesn't trip when security_add_hooks is disabled
+        sed -i 's/static struct security_hook_list ksu_hooks\[\]/static struct security_hook_list __maybe_unused ksu_hooks[]/' "$LSM_HOOK_FILE"
+        
+        # 2. Comment out security_add_hooks() completely so it cannot be re-matched or compiled on 6.12
+        sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/\/\* bypassed on 6.12: security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu"); \*\//' "$LSM_HOOK_FILE"
+        
+        echo "  [+] APPLIED Fix #3: Disabled security_add_hooks() and marked ksu_hooks __maybe_unused for BASE_VER 6.12."
     else
-        echo "  [i] lsm_hook.c already patched or file not found."
+        echo "  -> BASE_VER is ${BASE_VER}. Standard dynamic runtime LSM registration is compatible. Skipping bypass."
     fi
 else
-    echo "  -> BASE_VER is ${BASE_VER}. Legacy LSM string hook is compatible. Skipping patch."
+    echo "  [i] SKIPPED Fix #3: lsm_hook.c already patched or not present."
 fi
 
 if ! git diff --quiet; then
     git add .
     git commit -am "Hotfixes applied"
 fi
+
+
+# Calculate the official counts EXACTLY from the rock-solid hash
+CALCULATED_COUNT=$(git rev-list --count "${UPSTREAM_HASH}" 2>/dev/null || echo "11950")
+CALCULATED_TAG=$(git describe --tags --abbrev=0 "${UPSTREAM_HASH}" 2>/dev/null || echo "v0.0.0")
 
 cd ..
 
